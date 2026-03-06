@@ -149,9 +149,9 @@ def validate_config(config: dict | str) -> ValidationResult:
     # rcan_version format check
     rcan_version = config.get("rcan_version") or config.get("rcan_protocol", {}).get("version", "")
     if rcan_version:
-        if not re.match(r"^\d+\.\d+$", str(rcan_version)):
+        if not re.match(r"^\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.]+)?$", str(rcan_version)):
             result.fail(
-                f"rcan_version '{rcan_version}' must match pattern N.N (e.g. '1.2')"
+                f"rcan_version '{rcan_version}' must match pattern N.N or N.N.N (e.g. '1.2' or '1.2.0')"
             )
     else:
         result.warn("L1: rcan_version not declared (recommended)")
