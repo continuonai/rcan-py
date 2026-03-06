@@ -1,0 +1,23 @@
+- id: rcan-validate-config
+  name: Validate RCAN config
+  language: python
+  entry: rcan-validate
+  args: [config]
+  files: "\\.(rcan)\\.yaml$"
+  description: Validate .rcan.yaml files against the RCAN protocol spec
+
+- id: rcan-validate-message
+  name: Validate RCAN message
+  language: python
+  entry: rcan-validate
+  args: [message]
+  files: "rcan.*\\.json$"
+  description: Validate RCAN command/message JSON files
+
+- id: rcan-validate-audit
+  name: Verify RCAN audit chain
+  language: python
+  entry: rcan-validate
+  args: [audit]
+  files: "commitments\\.jsonl$|\\.commitments\\.jsonl$"
+  description: Verify RCAN commitment chain integrity
