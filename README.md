@@ -164,18 +164,65 @@ json_str = msg.to_json(indent=2)
 restored = RCANMessage.from_json(json_str)
 ```
 
+## Distributed Registry (NodeClient)
+
+RCAN v1.2 §17 introduces a distributed registry network. `NodeClient` resolves RRNs from any node in the federation — root or delegated.
+
+```python
+from rcan import NodeClient
+
+client = NodeClient()
+
+# Discover which node is authoritative for an RRN
+node = client.discover("RRN-BD-00000001")
+print(node["node_type"])   # "authoritative"
+print(node["operator"])    # "Boston Dynamics, Inc."
+
+# Resolve a full robot record
+robot = client.resolve("RRN-BD-00000001")
+print(robot["robot_name"])  # "Atlas Unit 001"
+
+# Use a custom root
+client = NodeClient(root_url="https://rcan.dev")
+```
+
+**RRN Formats:**
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Root (legacy, 8-digit) | `RRN-00000042` | Original format; still valid |
+| Root (recommended, 12-digit) | `RRN-000000000042` | New registrations should use 12+ digits |
+| Delegated | `RRN-BD-00000001` | Namespace-prefixed; authoritative node holds the record |
+
+Prefix is 2–8 uppercase alphanumeric characters. Sequence is 8–16 digits (up to 10¹⁶ robots per namespace).
+
+## Verification Tiers
+
+Every registered robot has a verification tier. SDKs expose this in resolved records.
+
+| Badge | Tier | Description |
+|-------|------|-------------|
+| ⬜ Community | Unverified | Self-registered; no identity check |
+| 🟡 Verified | Email/domain verified | Manufacturer identity confirmed |
+| 🔵 Partner | Official partner program | Signed partnership agreement |
+| ✅ Certified | Third-party tested | Passed conformance test suite |
+
 ## Spec Compliance
 
 This SDK implements [RCAN v1.2](https://rcan.dev/spec), including:
 - §2 Robot Addressing (Robot URI)
 - §3 Message format and serialization
 - §16 AI Accountability Layer (confidence gate, HiTL gate, thought log)
+- §17 Distributed Registry Node Protocol (NodeClient, RRN resolution)
 
 ## CLI
 
 ```bash
 # Validate a RCAN config (L1/L2/L3 conformance)
 rcan-validate config myrobot.rcan.yaml
+
+# Watch for changes and re-validate
+rcan-validate config myrobot.rcan.yaml --watch
 
 # Validate a message
 rcan-validate message command.json
@@ -185,6 +232,15 @@ rcan-validate audit audit.jsonl
 
 # Validate a Robot URI
 rcan-validate uri 'rcan://registry.rcan.dev/acme/arm/v2/unit-001'
+
+# Validate a node manifest (fetches /.well-known/rcan-node.json)
+rcan-validate node https://registry.example.com
+
+# Validate a node manifest from a local file
+rcan-validate node --file path/to/rcan-node.json
+
+# Run all checks
+rcan-validate all myrobot.rcan.yaml
 ```
 
 ## Ecosystem
@@ -192,15 +248,8 @@ rcan-validate uri 'rcan://registry.rcan.dev/acme/arm/v2/unit-001'
 | Package | Language | Install |
 |---------|----------|---------|
 | **rcan-py** (this) | Python 3.10+ | `pip install rcan` |
-| [rcan-ts](https://github.com/continuonai/rcan-ts) | TypeScript / Node | `npm install rcan-ts` |
+| [rcan-ts](https://github.com/continuonai/rcan-ts) | TypeScript / Node | `npm install @continuonai/rcan-ts` |
 | [OpenCastor](https://github.com/craigm26/OpenCastor) | Python (robot runtime) | `curl -sL opencastor.com/install \| bash` |
-
-## Spec Compliance
-
-This SDK implements [RCAN v1.2](https://rcan.dev/spec), including:
-- §2 Robot Addressing (Robot URI)
-- §3 Message format and serialization
-- §16 AI Accountability Layer (confidence gate, HiTL gate, thought log)
 
 ## Links
 
