@@ -1,0 +1,51 @@
+name: Spec Compatibility Smoke Test
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: pip install -e ".[dev]" pyyaml
+
+      - name: Validate against live canonical schemas
+        run: |
+          python -c "
+          from rcan.validate import _fetch_canonical_schema, validate_config
+          import yaml
+
+          # Test schema fetch
+          schema = _fetch_canonical_schema('rcan-config.schema.json')
+          if schema:
+              print('✓ Canonical schema fetched from rcan.dev')
+          else:
+              print('⚠ Could not fetch canonical schema (network?)')
+
+          # Test validate against fixture
+          with open('tests/fixtures/sample.rcan.yaml') as f:
+              config = yaml.safe_load(f)
+          valid, errors = validate_config(config)
+          assert valid, f'Fixture invalid: {errors}'
+          print('✓ sample.rcan.yaml validates correctly')
+
+          # Test node manifest
+          from rcan.node import NodeClient
+          client = NodeClient()
+          manifest = client.get_node_manifest('https://rcan-spec.pages.dev')
+          assert client.verify_node(manifest), 'Node manifest invalid'
+          print(f'✓ rcan.dev node manifest valid: {manifest[\"node_type\"]}')
+          "
+
+      - name: Run full test suite
+        run: python -m pytest tests/ -x -q
