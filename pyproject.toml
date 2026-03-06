@@ -36,5 +36,8 @@ Repository = "https://github.com/continuonai/rcan-py"
 Documentation = "https://rcan.dev/docs"
 Specification = "https://rcan.dev/spec"
 
+[project.scripts]
+rcan-validate = "rcan.validate:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["rcan"]
