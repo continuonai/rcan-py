@@ -171,10 +171,44 @@ This SDK implements [RCAN v1.2](https://rcan.dev/spec), including:
 - §3 Message format and serialization
 - §16 AI Accountability Layer (confidence gate, HiTL gate, thought log)
 
+## CLI
+
+```bash
+# Validate a RCAN config (L1/L2/L3 conformance)
+rcan-validate config myrobot.rcan.yaml
+
+# Validate a message
+rcan-validate message command.json
+
+# Verify an audit chain
+rcan-validate audit audit.jsonl
+
+# Validate a Robot URI
+rcan-validate uri 'rcan://registry.rcan.dev/acme/arm/v2/unit-001'
+```
+
+## Ecosystem
+
+| Package | Language | Install |
+|---------|----------|---------|
+| **rcan-py** (this) | Python 3.10+ | `pip install rcan` |
+| [rcan-ts](https://github.com/continuonai/rcan-ts) | TypeScript / Node | `npm install rcan-ts` |
+| [OpenCastor](https://github.com/craigm26/OpenCastor) | Python (robot runtime) | `curl -sL opencastor.com/install \| bash` |
+
+## Spec Compliance
+
+This SDK implements [RCAN v1.2](https://rcan.dev/spec), including:
+- §2 Robot Addressing (Robot URI)
+- §3 Message format and serialization
+- §16 AI Accountability Layer (confidence gate, HiTL gate, thought log)
+
 ## Links
 
+- **Quickstart**: https://rcan.dev/quickstart
 - **Spec**: https://rcan.dev/spec
 - **Registry**: https://rcan.dev/registry
+- **rcan-ts**: https://github.com/continuonai/rcan-ts
+- **OpenCastor**: https://github.com/craigm26/OpenCastor
 - **GitHub**: https://github.com/continuonai/rcan-py
 - **Issues**: https://github.com/continuonai/rcan-spec/issues
 
