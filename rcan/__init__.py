@@ -39,7 +39,7 @@ from rcan.gates import ConfidenceGate, HiTLGate, GateResult
 from rcan.message import RCANMessage, RCANResponse
 from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __spec_version__ = "1.2"
 
 __all__ = [
