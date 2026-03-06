@@ -30,7 +30,9 @@ from rcan.exceptions import (
     RCANError,
     RCANAddressError,
     RCANGateError,
+    RCANRegistryError,
     RCANSignatureError,
+    RCANTimeoutError,
     RCANValidationError,
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
@@ -55,6 +57,12 @@ __all__ = [
     "RCANError",
     "RCANAddressError",
     "RCANGateError",
+    "RCANRegistryError",
     "RCANSignatureError",
+    "RCANTimeoutError",
     "RCANValidationError",
+    # Sub-modules (imported explicitly)
+    # rcan.registry — RegistryClient (requires rcan[http])
+    # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])
+    # rcan.audit    — AuditChain
 ]
