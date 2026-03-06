@@ -193,3 +193,71 @@ async def test_get_robot_404():
 
     with pytest.raises(RCANRegistryError, match="Not found"):
         await client.get_robot("RRN-99999999")
+
+
+# ---------------------------------------------------------------------------
+# RegistryClient.search() — keyword filters
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_search_by_manufacturer():
+    client = RegistryClient()
+    results = [ROBOT_DATA]
+    mock_resp = make_mock_response({"results": results})
+
+    mock_httpx_client = AsyncMock()
+    mock_httpx_client.get = AsyncMock(return_value=mock_resp)
+    mock_httpx_client.is_closed = False
+    client._client = mock_httpx_client
+
+    data = await client.search(manufacturer="acme")
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["manufacturer"] == "acme"
+
+
+@pytest.mark.asyncio
+async def test_search_by_tier():
+    client = RegistryClient()
+    mock_resp = make_mock_response({"results": [ROBOT_DATA]})
+
+    mock_httpx_client = AsyncMock()
+    mock_httpx_client.get = AsyncMock(return_value=mock_resp)
+    mock_httpx_client.is_closed = False
+    client._client = mock_httpx_client
+
+    data = await client.search(tier="community")
+    assert isinstance(data, list)
+    # Verify params passed to GET
+    call_kwargs = mock_httpx_client.get.call_args
+    params = call_kwargs.kwargs.get("params", {}) or {}
+    assert "tier" in params
+
+
+@pytest.mark.asyncio
+async def test_search_no_filters_returns_list():
+    client = RegistryClient()
+    mock_resp = make_mock_response([ROBOT_DATA])
+
+    mock_httpx_client = AsyncMock()
+    mock_httpx_client.get = AsyncMock(return_value=mock_resp)
+    mock_httpx_client.is_closed = False
+    client._client = mock_httpx_client
+
+    data = await client.search()
+    assert isinstance(data, list)
+
+
+@pytest.mark.asyncio
+async def test_search_by_model():
+    client = RegistryClient()
+    mock_resp = make_mock_response({"results": [ROBOT_DATA]})
+
+    mock_httpx_client = AsyncMock()
+    mock_httpx_client.get = AsyncMock(return_value=mock_resp)
+    mock_httpx_client.is_closed = False
+    client._client = mock_httpx_client
+
+    data = await client.search(model="arm")
+    assert len(data) == 1

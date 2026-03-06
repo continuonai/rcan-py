@@ -140,19 +140,34 @@ class RegistryClient:
         data = await self._get("/api/v1/robots", params=params)
         return RegistryPage.from_dict(data)
 
-    async def search(self, query: str, limit: int = 10) -> list["RegistryEntry"]:
-        """
-        Full-text search across robot names, manufacturers, and models.
+    async def search(
+        self,
+        *,
+        manufacturer: str | None = None,
+        model: str | None = None,
+        tier: str | None = None,
+    ) -> list[dict]:
+        """Search robots by manufacturer, model, or tier.
 
         Args:
-            query: Search string.
-            limit: Max results.
+            manufacturer: Filter by manufacturer slug.
+            model:        Filter by model slug.
+            tier:         Filter by verification tier (e.g. ``"verified"``).
 
         Returns:
-            List of :class:`RegistryEntry` objects.
+            List of raw robot dicts from the registry.
         """
-        data = await self._get("/api/v1/robots/search", params={"q": query, "limit": limit})
-        return [RegistryEntry.from_dict(r) for r in data.get("results", [])]
+        params = {
+            k: v
+            for k, v in {"manufacturer": manufacturer, "model": model, "tier": tier}.items()
+            if v
+        }
+        data = await self._get("/api/v1/robots/search", params=params)
+        return data if isinstance(data, list) else data.get("results", [])
+
+    def search_sync(self, **kwargs: Any) -> list[dict]:
+        """Synchronous wrapper around :meth:`search`."""
+        return _run_sync(self.search(**kwargs))
 
     # ------------------------------------------------------------------
     # Write operations (require API key)
