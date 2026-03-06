@@ -1,0 +1,29 @@
+# Minimal RCAN configuration fixture for CI testing
+rcan_version: "1.2"
+
+metadata:
+  name: "Test Robot"
+  manufacturer: "Test Manufacturer"
+  model: "Test Model"
+  version: "1.0.0"
+  device_id: "test-device-001"
+
+capabilities:
+  - name: "navigation"
+    version: "1.0"
+    safety_level: "low"
+
+safety:
+  emergency_stop: true
+  max_speed_ms: 0.5
+
+network:
+  telemetry_stream: false
+  sim_to_real_sync: false
+  allow_remote_override: false
+
+rcan_protocol:
+  port: 8766
+  capabilities: ["register", "resolve"]
+  enable_mdns: false
+  enable_jwt: false
