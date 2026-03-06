@@ -134,3 +134,132 @@ def test_chain_iter():
     chain.append(make_record(action="b"))
     actions = [r.action for r in chain]
     assert actions == ["a", "b"]
+
+
+# ---------------------------------------------------------------------------
+# validate_audit_chain — CLI integration tests (#11)
+# ---------------------------------------------------------------------------
+
+
+import os
+import tempfile
+from rcan.validate import validate_audit_chain, main as validate_main
+
+
+def build_valid_jsonl(secret: bytes = SECRET, n: int = 3) -> str:
+    """Return JSONL text for a valid chain of n records."""
+    chain = AuditChain(secret)
+    for i in range(n):
+        chain.append(make_record(action=f"action_{i}"))
+    return chain.to_jsonl()
+
+
+def test_validate_audit_chain_valid():
+    """validate_audit_chain passes on a well-formed chain."""
+    jsonl = build_valid_jsonl()
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        result = validate_audit_chain(path, secret=SECRET.decode())
+        assert result.ok, result.issues
+        assert any("valid" in msg.lower() or "intact" in msg.lower() for msg in result.info)
+    finally:
+        os.unlink(path)
+
+
+def test_validate_audit_chain_wrong_secret():
+    """validate_audit_chain fails when the wrong secret is provided."""
+    jsonl = build_valid_jsonl(secret=b"correct-secret")
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        result = validate_audit_chain(path, secret="wrong-secret")
+        assert not result.ok
+        assert any("HMAC" in issue or "invalid" in issue.lower() for issue in result.issues)
+    finally:
+        os.unlink(path)
+
+
+def test_validate_audit_chain_tampered():
+    """validate_audit_chain detects a tampered record."""
+    chain = AuditChain(SECRET)
+    r1 = chain.append(make_record(action="a"))
+    chain.append(make_record(action="b"))
+    # Tamper AFTER sealing
+    r1.action = "self_destruct"
+    jsonl = chain.to_jsonl()
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        result = validate_audit_chain(path, secret=SECRET.decode())
+        assert not result.ok
+    finally:
+        os.unlink(path)
+
+
+def test_validate_audit_chain_broken_link():
+    """validate_audit_chain detects a broken chain link."""
+    chain = AuditChain(SECRET)
+    r1 = chain.append(make_record(action="a"))
+    chain.append(make_record(action="b"))
+    # Corrupt previous_hash of second record in JSONL
+    records = [json.loads(line) for line in chain.to_jsonl().strip().split("\n")]
+    records[1]["previous_hash"] = "deadbeef" * 8
+    jsonl = "\n".join(json.dumps(r) for r in records)
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        result = validate_audit_chain(path, secret=SECRET.decode())
+        assert not result.ok
+    finally:
+        os.unlink(path)
+
+
+def test_validate_audit_chain_file_not_found():
+    """validate_audit_chain returns failure for missing file."""
+    result = validate_audit_chain("/nonexistent/path/audit.jsonl")
+    assert not result.ok
+    assert any("not found" in issue.lower() or "File not found" in issue for issue in result.issues)
+
+
+def test_validate_audit_chain_empty_file():
+    """validate_audit_chain warns on empty file."""
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write("")
+        path = f.name
+    try:
+        result = validate_audit_chain(path, secret=SECRET.decode())
+        # Empty file is a warning, not a hard failure
+        assert any("empty" in w.lower() for w in result.warnings)
+    finally:
+        os.unlink(path)
+
+
+def test_cli_audit_secret_flag():
+    """CLI --secret flag is passed to validate_audit_chain."""
+    jsonl = build_valid_jsonl(secret=b"my-secret")
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        rc = validate_main(["audit", path, "--secret", "my-secret"])
+        assert rc == 0
+    finally:
+        os.unlink(path)
+
+
+def test_cli_audit_wrong_secret_exits_1():
+    """CLI returns exit code 1 on HMAC failure."""
+    jsonl = build_valid_jsonl(secret=b"correct")
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl)
+        path = f.name
+    try:
+        rc = validate_main(["audit", path, "--secret", "wrong"])
+        assert rc == 1
+    finally:
+        os.unlink(path)

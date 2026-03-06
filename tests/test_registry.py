@@ -261,3 +261,59 @@ async def test_search_by_model():
 
     data = await client.search(model="arm")
     assert len(data) == 1
+
+
+# ---------------------------------------------------------------------------
+# Async context manager tests (#10)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_opens_closes_session():
+    """Async with RegistryClient closes the httpx session on exit."""
+    async with RegistryClient() as client:
+        # Force client creation
+        mock_httpx = AsyncMock()
+        mock_httpx.is_closed = False
+        mock_httpx.aclose = AsyncMock()
+        client._client = mock_httpx
+        assert client._client is not None
+
+    # aclose should have been called
+    mock_httpx.aclose.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_context_manager_closes_on_exception():
+    """An exception inside the with block still closes the client."""
+    mock_httpx = AsyncMock()
+    mock_httpx.is_closed = False
+    mock_httpx.aclose = AsyncMock()
+
+    with pytest.raises(ValueError, match="boom"):
+        async with RegistryClient() as client:
+            client._client = mock_httpx
+            raise ValueError("boom")
+
+    mock_httpx.aclose.assert_called_once()
+
+
+def test_search_sync_wrapper():
+    """search_sync() returns a list (mock HTTP, no running loop)."""
+    client = RegistryClient()
+    mock_resp = make_mock_response({"results": [ROBOT_DATA]})
+
+    mock_httpx_client = MagicMock()
+    mock_httpx_client.is_closed = False
+
+    # Patch the async get to return our mock response
+    async def mock_get(*args, **kwargs):
+        return mock_resp
+
+    mock_httpx_client.get = mock_get
+    client._client = mock_httpx_client
+
+    result = client.search_sync(manufacturer="acme")
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0]["manufacturer"] == "acme"

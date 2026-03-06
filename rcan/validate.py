@@ -178,16 +178,23 @@ def validate_config(config: dict | str) -> ValidationResult:
     return result
 
 
-def validate_audit_chain(path: str) -> ValidationResult:
+def validate_audit_chain(path: str, secret: str | None = None) -> ValidationResult:
     """
     Validate a JSONL audit chain file.
 
     Checks HMAC integrity and chain linkage for every record.
+
+    Args:
+        path:   Path to the JSONL audit chain file.
+        secret: HMAC secret override.  Falls back to the
+                ``OPENCASTOR_COMMITMENT_SECRET`` environment variable,
+                then the built-in default.
     """
     result = ValidationResult()
 
     import os
-    secret = os.environ.get("OPENCASTOR_COMMITMENT_SECRET", "opencastor-default-commitment-secret")
+    if secret is None:
+        secret = os.environ.get("OPENCASTOR_COMMITMENT_SECRET", "opencastor-default-commitment-secret")
 
     try:
         from rcan import CommitmentRecord
@@ -270,6 +277,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_audit = sub.add_parser("audit", help="Verify a JSONL commitment chain")
     p_audit.add_argument("file", help="JSONL audit chain file")
+    p_audit.add_argument(
+        "--secret",
+        default=None,
+        help="HMAC secret for verification (overrides OPENCASTOR_COMMITMENT_SECRET env var)",
+    )
 
     p_uri = sub.add_parser("uri", help="Validate a RCAN Robot URI")
     p_uri.add_argument("uri", help="URI string e.g. rcan://registry.rcan.dev/acme/arm/v2/unit-001")
@@ -315,7 +327,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result.ok else 1
 
     if args.cmd == "audit":
-        result = validate_audit_chain(args.file)
+        secret_arg = getattr(args, "secret", None)
+        result = validate_audit_chain(args.file, secret=secret_arg)
         _print_result(result)
         return 0 if result.ok else 1
 
