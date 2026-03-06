@@ -41,3 +41,4 @@ rcan-validate = "rcan.validate:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["rcan"]
+include = ["rcan/py.typed"]
