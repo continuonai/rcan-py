@@ -243,6 +243,56 @@ rcan-validate node --file path/to/rcan-node.json
 rcan-validate all myrobot.rcan.yaml
 ```
 
+## Swarm Safety
+
+`NodeClient.resolve()` is the foundation of RCAN-based swarm safety. Before any robot accepts a command from a peer, it should verify the peer's identity and certification tier.
+
+```python
+from rcan import NodeClient, ConfidenceGate, CommitmentRecord
+from rcan.audit import AuditChain
+
+client = NodeClient()
+
+# Resolve peer identity from the distributed registry (or stale cache if offline)
+peer = client.resolve("RRN-BD-000000000042")
+tier = peer['record'].get('verification_tier', 'community')
+
+# Enforce minimum trust tier before accepting swarm commands
+TRUSTED_TIERS = ('verified', 'certified', 'accredited')
+if tier not in TRUSTED_TIERS:
+    raise SecurityError(f"Peer robot not sufficiently verified: {tier}")
+
+print(f"✅ Peer verified: {peer.get('robot_name', 'unknown')} [{tier}]")
+
+# Gate on your own model's confidence before acting on the command
+gate = ConfidenceGate(threshold=0.80)
+my_confidence = 0.91  # from your AI model
+
+if gate.allows(my_confidence):
+    # Execute the task and log it to the commitment chain
+    chain = AuditChain(secret="your-chain-secret")
+    chain.append(CommitmentRecord(
+        action="move_to_waypoint",
+        robot_uri="rcan://registry.rcan.dev/acme/rover/v1/unit-007",
+        confidence=my_confidence,
+        model_identity="claude-sonnet-4-6",
+        params={"waypoint": "zone-7", "authorized_by": "RRN-BD-000000000042"},
+        safety_approved=True,
+    ))
+    print("📝 Action logged to commitment chain")
+```
+
+### RCAN-Swarm Safe checklist
+
+| Requirement | rcan-py API |
+|-------------|-------------|
+| Valid RRN, verified tier | `NodeClient.resolve(rrn)` → `verification_tier` |
+| Commitment chain enabled | `AuditChain` + `CommitmentRecord` |
+| Confidence gate ≥ 0.7 | `ConfidenceGate(threshold=0.7)` |
+| HITL gate for swarm commands | `HiTLGate(approval_fn=...)` |
+
+> Full guide: [rcan.dev/use-cases/swarm/](https://rcan.dev/use-cases/swarm/)
+
 ## Ecosystem
 
 | Package | Language | Install |
