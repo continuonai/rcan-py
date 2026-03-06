@@ -245,14 +245,26 @@ def validate_message(data: dict | str) -> ValidationResult:
     return result
 
 
+_CURRENT_SPEC_VERSION = "1.2"
+
+
 def validate_config(
-    config: dict | str, *, fetch_schema: bool = True
+    config: "dict | str",
+    *,
+    fetch_schema: bool = True,
+    strict: bool = False,
 ) -> ValidationResult:
-    """
-    Validate a robot RCAN YAML config dict.
+    """Validate a robot RCAN YAML config dict.
 
     Checks L1/L2/L3 conformance levels.  If *fetch_schema* is True, also
     attempts to validate against the canonical JSON schema from rcan.dev.
+
+    Args:
+        config:       Config dict or path to a YAML file.
+        fetch_schema: Fetch and validate against the canonical JSON schema.
+        strict:       Strict mode — warnings become errors, schema is required,
+                      RRN format is validated if ``metadata.device_id`` is set,
+                      and ``rcan_version`` must equal the current spec version.
     """
     result = ValidationResult()
 
@@ -326,15 +338,42 @@ def validate_config(
     else:
         result.warn("Robot not registered — run: castor register")
 
+    # Strict mode extra checks
+    if strict:
+        # rcan_version must be current spec
+        if rcan_version and str(rcan_version) != _CURRENT_SPEC_VERSION:
+            result.fail(
+                f"strict: rcan_version must be {_CURRENT_SPEC_VERSION!r} (got {rcan_version!r})"
+            )
+        # device_id that looks like an RRN must be valid format
+        device_id = meta.get("device_id", "")
+        if device_id and str(device_id).startswith("RRN-"):
+            if not RRN_ANY_RE.match(str(device_id)):
+                result.fail(
+                    f"strict: metadata.device_id has invalid RRN format: {device_id!r}"
+                )
+
     # Canonical JSON schema validation (Part 3)
-    if fetch_schema:
+    # In strict mode: always fetch schema; fail if unreachable
+    effective_fetch_schema = fetch_schema or strict
+    if effective_fetch_schema:
         schema = _fetch_canonical_schema("rcan-config.schema.json")
         if schema is not None:
             _validate_against_schema(config, schema, result)
+        elif strict:
+            result.fail(
+                "strict: canonical schema from rcan.dev is required in strict mode but could not be fetched"
+            )
         else:
             result.warn(
                 "Could not fetch canonical schema from rcan.dev — skipping schema validation"
             )
+
+    # In strict mode: promote warnings to errors
+    if strict and result.warnings:
+        for w in result.warnings:
+            result.fail(f"strict: {w}")
+        result.warnings.clear()
 
     if result.ok and not result.issues:
         l1_ok = not any("L1" in i for i in result.issues + result.warnings)
@@ -342,6 +381,70 @@ def validate_config(
         l3_ok = l2_ok and not any("L3" in i for i in result.warnings)
         level = "L3" if l3_ok else "L2" if l2_ok else "L1" if l1_ok else "FAIL"
         result.note(f"✅ Config valid — conformance level: {level}")
+    return result
+
+
+def validate_robot(rrn: str, node_url: str | None = None) -> ValidationResult:
+    """Validate a robot record by RRN, fetching from a registry node.
+
+    Args:
+        rrn:      Robot Registry Number, e.g. ``"RRN-000000000001"``.
+        node_url: Override the default registry URL (``https://rcan.dev``).
+
+    Returns:
+        :class:`ValidationResult` with per-check pass/fail details.
+    """
+    from rcan.node import NodeClient, RCANNodeError
+
+    result = ValidationResult()
+    client = NodeClient(root_url=node_url or "https://rcan.dev")
+
+    try:
+        raw = client.resolve(rrn)
+        record: dict = raw.get("record", raw)
+    except RCANNodeError as exc:
+        result.fail(f"Could not fetch RRN: {exc}")
+        return result
+
+    # RRN format check
+    if RRN_ANY_RE.match(rrn):
+        result.note("  ✓ RRN format valid")
+    else:
+        result.fail(f"Invalid RRN format: {rrn}")
+
+    # Required fields
+    for req_field in ("name", "manufacturer", "model", "rcan_version"):
+        if req_field in record:
+            result.note(f"  ✓ {req_field}: {record[req_field]}")
+        else:
+            result.fail(f"Missing field: {req_field}")
+
+    # Verification tier
+    tier = record.get("verification_tier", "community")
+    tier_badge: dict[str, str] = {
+        "community": "⬜",
+        "verified": "🟡",
+        "certified": "🔵",
+        "accredited": "✅",
+    }
+    result.note(f"  ℹ Verification tier: {tier_badge.get(tier, '?')} {tier}")
+
+    # Canonical schema validation if available
+    schema = _fetch_canonical_schema("rcan-robot.schema.json")
+    if schema is not None:
+        _validate_against_schema(record, schema, result)
+
+    # Resolved-by info
+    resolved_by = raw.get("resolved_by", node_url or "rcan.dev")
+    result.info.insert(0, f"  Resolved by: {resolved_by}")
+    result.info.insert(0, f"Validating robot record: {rrn}")
+
+    passed = sum(1 for msg in result.info if msg.strip().startswith("✓"))
+    failed = len(result.issues)
+    result.note(
+        f"\n{'PASS' if failed == 0 else 'FAIL'} ({passed}/{passed + failed} checks)"
+    )
+
     return result
 
 
@@ -571,9 +674,16 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point for rcan-validate."""
     import argparse
 
+    import rcan as _rcan_pkg
+
     parser = argparse.ArgumentParser(
         prog="rcan-validate",
         description="Validate RCAN messages, configs, and audit chains",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"rcan-validate {_rcan_pkg.__version__} (RCAN spec {_rcan_pkg.SPEC_VERSION})",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -591,6 +701,14 @@ def main(argv: list[str] | None = None) -> int:
         "--no-schema",
         action="store_true",
         help="Skip canonical JSON schema validation from rcan.dev",
+    )
+    p_cfg.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Strict mode: treat warnings as errors, require canonical schema, "
+            "validate RRN format in device_id, enforce current spec version"
+        ),
     )
 
     p_audit = sub.add_parser("audit", help="Verify a JSONL commitment chain")
@@ -620,10 +738,23 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate a local rcan-node.json file instead",
     )
 
+    p_robot = sub.add_parser(
+        "robot",
+        help="Validate a robot record by RRN (fetches from registry node)",
+    )
+    p_robot.add_argument("rrn", help="Robot Registry Number, e.g. RRN-000000000001")
+    p_robot.add_argument(
+        "--node",
+        dest="node_url",
+        default=None,
+        metavar="URL",
+        help="Registry node URL (default: https://rcan.dev)",
+    )
+
     p_all = sub.add_parser("all", help="Run all applicable checks for a config")
     p_all.add_argument("file", help="YAML config file")
 
-    for p in (p_msg, p_cfg, p_audit, p_uri, p_node, p_all):
+    for p in (p_msg, p_cfg, p_audit, p_uri, p_node, p_robot, p_all):
         p.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args(argv)
@@ -657,13 +788,36 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result.ok else 1
 
     if args.cmd == "config":
-        fetch_schema = not getattr(args, "no_schema", False)
+        is_strict = getattr(args, "strict", False)
+        # --no-schema is ignored in strict mode (schema always required)
+        fetch_schema = (not getattr(args, "no_schema", False)) or is_strict
         if getattr(args, "watch", False):
             watch_file(
-                args.file, lambda p: validate_config(p, fetch_schema=fetch_schema)
+                args.file,
+                lambda p: validate_config(
+                    p, fetch_schema=fetch_schema, strict=is_strict
+                ),
             )
             return 0
-        result = validate_config(args.file, fetch_schema=fetch_schema)
+        result = validate_config(args.file, fetch_schema=fetch_schema, strict=is_strict)
+        if getattr(args, "json", False):
+            print(
+                json.dumps(
+                    {
+                        "ok": result.ok,
+                        "issues": result.issues,
+                        "warnings": result.warnings,
+                        "info": result.info,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            _print_result(result)
+        return 0 if result.ok else 1
+
+    if args.cmd == "robot":
+        result = validate_robot(args.rrn, node_url=getattr(args, "node_url", None))
         if getattr(args, "json", False):
             print(
                 json.dumps(

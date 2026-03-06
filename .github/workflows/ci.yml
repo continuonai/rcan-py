@@ -18,4 +18,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]" pyyaml
+      - name: Type check with mypy
+        run: |
+          pip install mypy types-PyYAML
+          mypy rcan/ --ignore-missing-imports --strict-optional --no-error-summary || true
+          # || true for now — fix errors progressively
       - run: python -m pytest tests/ -v

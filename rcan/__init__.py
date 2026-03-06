@@ -43,6 +43,7 @@ from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnv
 
 __version__ = "0.2.0"
 __spec_version__ = "1.2"
+SPEC_VERSION = "1.2"
 
 __all__ = [
     # Address
@@ -72,6 +73,9 @@ __all__ = [
     "RCANMetadata",
     "RCANAgentConfig",
     "RCANMessageEnvelope",
+    # Version
+    "__version__",
+    "SPEC_VERSION",
     # Sub-modules (imported explicitly)
     # rcan.registry — RegistryClient (requires rcan[http])
     # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])
