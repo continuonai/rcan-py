@@ -36,6 +36,39 @@ from typing import Any
 from rcan.address import RobotURI
 from rcan.exceptions import RCANRegistryError, RCANTimeoutError
 
+
+
+def _run_sync(coro):  # type: ignore[no-untyped-def]
+    """Run a coroutine synchronously — works inside and outside running loops.
+
+    * Outside a loop: uses ``asyncio.run``.
+    * Inside a loop (FastAPI, Jupyter, etc.): uses ``anyio.from_thread.run_sync``
+      when available, otherwise raises a clear ``RuntimeError`` with instructions.
+    """
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is None:
+        return _asyncio.run(coro)
+
+    # Inside a running loop — try anyio
+    try:
+        import anyio.from_thread as _aft
+        import concurrent.futures as _cf
+        with _cf.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_asyncio.run, coro)
+            return future.result(timeout=30)
+    except ImportError:
+        pass
+
+    raise RuntimeError(
+        "Cannot call a sync wrapper from inside a running event loop without anyio. "
+        "Use `await client.get_robot(rrn)` instead, or install anyio: pip install anyio"
+    )
+
 DEFAULT_BASE_URL = "https://rcan.dev"
 DEFAULT_TIMEOUT = 10.0
 
