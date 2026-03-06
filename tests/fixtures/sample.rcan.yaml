@@ -8,6 +8,11 @@ metadata:
   version: "1.0.0"
   device_id: "test-device-001"
 
+agent:
+  provider: "mock"
+  model: "test-model"
+  system_prompt: "You are a test robot."
+
 capabilities:
   - name: "navigation"
     version: "1.0"
