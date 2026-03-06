@@ -37,8 +37,9 @@ from rcan.exceptions import (
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
 from rcan.message import RCANMessage, RCANResponse
+from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __spec_version__ = "1.2"
 
 __all__ = [
@@ -61,6 +62,11 @@ __all__ = [
     "RCANSignatureError",
     "RCANTimeoutError",
     "RCANValidationError",
+    # Types
+    "RCANConfig",
+    "RCANMetadata",
+    "RCANAgentConfig",
+    "RCANMessageEnvelope",
     # Sub-modules (imported explicitly)
     # rcan.registry — RegistryClient (requires rcan[http])
     # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])

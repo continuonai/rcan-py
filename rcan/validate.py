@@ -139,14 +139,33 @@ def validate_config(config: dict | str) -> ValidationResult:
             result.fail(f"Failed to parse config: {e}")
             return result
 
+    import re
+
+    # Required top-level keys
+    for req_key in ("rcan_version", "metadata", "agent"):
+        if req_key not in config:
+            result.fail(f"Missing required key: '{req_key}'")
+
+    # rcan_version format check
+    rcan_version = config.get("rcan_version") or config.get("rcan_protocol", {}).get("version", "")
+    if rcan_version:
+        if not re.match(r"^\d+\.\d+$", str(rcan_version)):
+            result.fail(
+                f"rcan_version '{rcan_version}' must match pattern N.N (e.g. '1.2')"
+            )
+    else:
+        result.warn("L1: rcan_version not declared (recommended)")
+
     # L1 checks
     meta = config.get("metadata", {})
     if not meta.get("manufacturer"):
         result.fail("L1: metadata.manufacturer is required (§2)")
     if not meta.get("model"):
         result.fail("L1: metadata.model is required (§2)")
-    if not config.get("rcan_version") and not config.get("rcan_protocol", {}).get("version"):
-        result.warn("L1: rcan_version not declared (recommended)")
+    if not meta.get("version"):
+        result.warn("L1: metadata.version not set")
+    if not meta.get("device_id") and not meta.get("robot_name"):
+        result.fail("L1: metadata.device_id (or robot_name) is required (§2)")
 
     # L2 checks
     rcan_proto = config.get("rcan_protocol", {})

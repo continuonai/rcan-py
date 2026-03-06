@@ -116,6 +116,7 @@ VALID_CONFIG = {
         "manufacturer": "acme",
         "model": "robotarm",
         "version": "v2",
+        "device_id": "unit-001",
         "rrn": "RRN-00000042",
     },
     "agent": {
