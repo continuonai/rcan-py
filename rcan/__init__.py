@@ -30,6 +30,7 @@ from rcan.exceptions import (
     RCANError,
     RCANAddressError,
     RCANGateError,
+    RCANNodeError,
     RCANRegistryError,
     RCANSignatureError,
     RCANTimeoutError,
@@ -37,6 +38,7 @@ from rcan.exceptions import (
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
 from rcan.message import RCANMessage, RCANResponse
+from rcan.node import NodeClient
 from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
 
 __version__ = "0.2.0"
@@ -58,10 +60,13 @@ __all__ = [
     "RCANError",
     "RCANAddressError",
     "RCANGateError",
+    "RCANNodeError",
     "RCANRegistryError",
     "RCANSignatureError",
     "RCANTimeoutError",
     "RCANValidationError",
+    # Node federation
+    "NodeClient",
     # Types
     "RCANConfig",
     "RCANMetadata",

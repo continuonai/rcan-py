@@ -5,9 +5,10 @@ These types document the expected structure of RCAN YAML config files
 and message envelopes, and can be used for static type checking with
 mypy or pyright.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 try:
     from typing import TypedDict
@@ -59,9 +60,39 @@ class RCANMessageEnvelope(TypedDict, total=False):
     signature: str
 
 
+class RegistryNode(TypedDict, total=False):
+    """A distributed RCAN registry node manifest (/.well-known/rcan-node.json)."""
+
+    rcan_node_version: str
+    node_type: str  # root | authoritative | resolver | cache
+    operator: str
+    namespace_prefix: str
+    public_key: str
+    api_base: str
+    capabilities: list
+    ttl_seconds: int
+    last_sync: str
+
+
+class Robot(TypedDict, total=False):
+    """A robot record returned by the RCAN registry API."""
+
+    rrn: str
+    uri: str
+    manufacturer: str
+    model: str
+    version: str
+    device_id: str
+    verification_tier: str
+    metadata: dict
+    registered_at: str
+
+
 __all__ = [
     "RCANMetadata",
     "RCANAgentConfig",
     "RCANConfig",
     "RCANMessageEnvelope",
+    "RegistryNode",
+    "Robot",
 ]

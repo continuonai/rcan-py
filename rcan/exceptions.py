@@ -18,7 +18,13 @@ class RCANValidationError(RCANError):
 class RCANGateError(RCANError):
     """Action blocked by a safety gate (confidence or HiTL)."""
 
-    def __init__(self, message: str, gate_type: str = "unknown", value: float | None = None, threshold: float | None = None):
+    def __init__(
+        self,
+        message: str,
+        gate_type: str = "unknown",
+        value: float | None = None,
+        threshold: float | None = None,
+    ):
         super().__init__(message)
         self.gate_type = gate_type
         self.value = value
@@ -35,3 +41,7 @@ class RCANRegistryError(RCANError):
 
 class RCANTimeoutError(RCANError):
     """Command timed out waiting for a response or HiTL approval."""
+
+
+class RCANNodeError(RCANError):
+    """Error communicating with an RCAN distributed registry node."""
