@@ -4,6 +4,22 @@ All notable changes to rcan-py are documented here.
 
 ---
 
+## [0.3.0] — 2026-03-06
+
+### Added
+- `rcan-validate --version` — prints version and spec compatibility
+- `rcan-validate robot <rrn>` — validate live robot record from registry via NodeClient
+- `rcan-validate config --strict` — treat warnings as errors, require canonical schema
+- `rcan-validate node <url>` — validate node manifest from rcan.dev or any registry node
+- `rcan-validate config --watch` — live re-validation on file changes (1s polling)
+- Canonical JSON schema validation with 24h local cache (`~/.cache/rcan/schemas/`)
+- `SPEC_VERSION = "1.2"` exported from `rcan` package
+- RRN address space expansion: sequences 8→8-16 digits, prefix `[A-Z0-9]{2,8}` (backward compatible)
+- mypy CI integration with `mypy.ini`
+
+### Changed
+- `rcan-validate config` now fetches canonical schema from rcan.dev by default (use `--no-schema` to skip)
+
 ## [0.2.0] — 2026-03-06
 ### Features
 - `RegistryClient` — full async/sync CRUD for rcan.dev API (register, get, list, search, patch, delete)
