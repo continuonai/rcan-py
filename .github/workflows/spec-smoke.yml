@@ -28,7 +28,9 @@ jobs:
           # Test validate against fixture
           with open('tests/fixtures/sample.rcan.yaml') as f:
               config = yaml.safe_load(f)
-          valid, errors = validate_config(config)
+          result = validate_config(config)
+          valid = result.ok if hasattr(result, 'ok') else result[0]
+          errors = result.issues if hasattr(result, 'issues') else result[1]
           assert valid, f'Fixture invalid: {errors}'
           print('OK sample.rcan.yaml validates correctly')
 
