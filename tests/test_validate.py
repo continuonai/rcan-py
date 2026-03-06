@@ -4,18 +4,105 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
-from pathlib import Path
 
-import pytest
 
 from rcan.validate import (
+    RRN_RE,
+    RRN_DELEGATED_RE,
+    RRN_ANY_RE,
     validate_uri,
     validate_message,
     validate_config,
     validate_audit_chain,
     ValidationResult,
 )
+
+
+# ---------------------------------------------------------------------------
+# RRN regex pattern tests (Part 1 — address space expansion)
+# ---------------------------------------------------------------------------
+
+
+class TestRRNPatterns:
+    """RRN format: RRN-{8–16 digits}  or  RRN-{PREFIX}-{8–16 digits}."""
+
+    # ---- Root RRN (RRN_RE) ----
+
+    def test_rrn_re_8_digits_legacy(self):
+        """8-digit root RRNs remain valid (backward compat)."""
+        assert RRN_RE.match("RRN-12345678")
+
+    def test_rrn_re_12_digits(self):
+        """12-digit root RRN — recommended new format."""
+        assert RRN_RE.match("RRN-000000000001")
+
+    def test_rrn_re_16_digits(self):
+        """16-digit root RRN — maximum sequence length."""
+        assert RRN_RE.match("RRN-0000000000000001")
+
+    def test_rrn_re_7_digits_invalid(self):
+        """7-digit sequences are too short."""
+        assert not RRN_RE.match("RRN-1234567")
+
+    def test_rrn_re_17_digits_invalid(self):
+        """17-digit sequences exceed max."""
+        assert not RRN_RE.match("RRN-00000000000000001")
+
+    # ---- Delegated RRN (RRN_DELEGATED_RE) ----
+
+    def test_delegated_re_8_digit_legacy(self):
+        """Legacy 8-digit delegated RRNs remain valid."""
+        assert RRN_DELEGATED_RE.match("RRN-BD-12345678")
+
+    def test_delegated_re_12_digits(self):
+        """12-digit delegated RRN."""
+        assert RRN_DELEGATED_RE.match("RRN-BD-000000000001")
+
+    def test_delegated_re_alphanumeric_prefix(self):
+        """Alphanumeric prefix (new format)."""
+        assert RRN_DELEGATED_RE.match("RRN-BD1-000000000001")
+
+    def test_delegated_re_8char_prefix_16_digits(self):
+        """Maximum prefix length (8 chars) with 16-digit sequence."""
+        assert RRN_DELEGATED_RE.match("RRN-BDABCDEF-0000000000000001")
+
+    def test_delegated_re_7_digits_invalid(self):
+        """7-digit sequences are too short."""
+        assert not RRN_DELEGATED_RE.match("RRN-BD-1234567")
+
+    def test_delegated_re_9char_prefix_invalid(self):
+        """9-character prefixes are too long."""
+        assert not RRN_DELEGATED_RE.match("RRN-TOOLONGPR-00000001")
+
+    def test_delegated_re_1char_prefix_invalid(self):
+        """1-character prefixes are too short."""
+        assert not RRN_DELEGATED_RE.match("RRN-B-00000001")
+
+    # ---- Combined (RRN_ANY_RE) ----
+
+    def test_any_re_root_8_digits(self):
+        assert RRN_ANY_RE.match("RRN-12345678")
+
+    def test_any_re_root_12_digits(self):
+        assert RRN_ANY_RE.match("RRN-000000000001")
+
+    def test_any_re_delegated_8_digits(self):
+        assert RRN_ANY_RE.match("RRN-BD-12345678")
+
+    def test_any_re_delegated_12_digits(self):
+        assert RRN_ANY_RE.match("RRN-BD-000000000001")
+
+    def test_any_re_alphanumeric_prefix(self):
+        assert RRN_ANY_RE.match("RRN-BD1-000000000001")
+
+    def test_any_re_8char_prefix_16_digits(self):
+        assert RRN_ANY_RE.match("RRN-BDABCDEF-0000000000000001")
+
+    def test_any_re_7_digits_invalid(self):
+        assert not RRN_ANY_RE.match("RRN-BD-1234567")
+
+    def test_any_re_9char_prefix_invalid(self):
+        assert not RRN_ANY_RE.match("RRN-TOOLONGPREFIX-00000001")
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +204,7 @@ VALID_CONFIG = {
         "model": "robotarm",
         "version": "v2",
         "device_id": "unit-001",
-        "rrn": "RRN-00000042",
+        "rrn": "RRN-000000000042",  # 12-digit recommended format
     },
     "agent": {
         "provider": "ollama",
@@ -152,6 +239,7 @@ def test_validate_config_missing_model():
 
 def test_validate_config_file(tmp_path):
     import yaml
+
     config_file = tmp_path / "robot.rcan.yaml"
     config_file.write_text(yaml.dump(VALID_CONFIG))
     result = validate_config(str(config_file))

@@ -25,6 +25,10 @@ class RCANMetadata(TypedDict, total=False):
     device_id: str
     robot_name: str  # backwards-compat alias for device_id
     rrn: str  # Robot Registry Number, assigned by rcan.dev
+    # Format: RRN-<8–16 digits>  or  RRN-<PREFIX>-<8–16 digits>
+    # Legacy (8 digits): RRN-00000042
+    # Recommended (12 digits): RRN-000000000042
+    # Delegated: RRN-BD-000000000042  (PREFIX: [A-Z0-9]{2,8})
 
 
 class RCANAgentConfig(TypedDict, total=False):

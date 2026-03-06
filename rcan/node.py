@@ -31,8 +31,10 @@ _VALID_NODE_TYPES = {"root", "authoritative", "resolver", "cache"}
 _REQUIRED_NODE_FIELDS = {"rcan_node_version", "node_type", "public_key", "api_base"}
 
 # Pattern: RRN-<PREFIX>-<SERIAL>  or legacy RRN-<SERIAL>
-_RRN_PREFIXED = re.compile(r"^RRN-([A-Z]{2,8})-\d+$", re.IGNORECASE)
-_RRN_LEGACY = re.compile(r"^RRN-\d+$", re.IGNORECASE)
+# PREFIX: [A-Z0-9]{2,8} (alphanumeric, up to 8 chars)
+# SERIAL: [0-9]{8,16} (8–16 digits for 10^16 capacity per namespace)
+_RRN_PREFIXED = re.compile(r"^RRN-([A-Z0-9]{2,8})-(\d{8,16})$", re.IGNORECASE)
+_RRN_LEGACY = re.compile(r"^RRN-(\d{8,16})$", re.IGNORECASE)
 
 
 def _http_get(url: str, timeout: int) -> dict[str, Any]:

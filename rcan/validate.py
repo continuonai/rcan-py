@@ -6,8 +6,11 @@ CLI entry point and programmatic API for checking RCAN v1.2 compliance.
 Usage:
     rcan-validate message command.json
     rcan-validate config robot.rcan.yaml
+    rcan-validate config robot.rcan.yaml --watch
     rcan-validate audit audit-chain.jsonl
     rcan-validate uri 'rcan://registry.rcan.dev/acme/arm/v2/unit-001'
+    rcan-validate node https://registry.example.com
+    rcan-validate node --file path/to/rcan-node.json
     rcan-validate all robot.rcan.yaml          # run all checks
 
 Programmatic:
@@ -24,9 +27,30 @@ Programmatic:
 from __future__ import annotations
 
 import json
+import re
 import sys
+import urllib.request
+import urllib.error
 from dataclasses import dataclass, field
-from typing import Any
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+# ---------------------------------------------------------------------------
+# RRN regex patterns (backward compatible — 8-digit sequences still valid)
+# ---------------------------------------------------------------------------
+
+# Root RRN: RRN-{8–16 digits}
+RRN_RE = re.compile(r"^RRN-\d{8,16}$")
+
+# Delegated RRN: RRN-{PREFIX}-{SEQUENCE}
+# PREFIX: [A-Z0-9]{2,8} (alphanumeric, up to 8 chars)
+# SEQUENCE: [0-9]{8,16} (8 to 16 digits → 10^16 capacity per namespace)
+RRN_DELEGATED_RE = re.compile(r"^RRN-[A-Z0-9]{2,8}-\d{8,16}$")
+
+# Combined: matches either form
+RRN_ANY_RE = re.compile(r"^RRN(-[A-Z0-9]{2,8})?-\d{8,16}$")
+
+_VALID_NODE_TYPES = {"root", "authoritative", "resolver", "cache"}
 
 
 @dataclass
@@ -50,6 +74,107 @@ class ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# Schema helpers (Part 3)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_canonical_schema(schema_name: str) -> Optional[dict]:
+    """Fetch a canonical schema from rcan.dev, with local 24h cache.
+
+    Args:
+        schema_name: Schema filename, e.g. ``"rcan-config.schema.json"``.
+
+    Returns:
+        Parsed schema dict, or ``None`` if unavailable (graceful degradation).
+    """
+    import os
+    import time
+
+    cache_dir = (
+        Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+        / "rcan"
+        / "schemas"
+    )
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / schema_name
+
+    # Return cached copy if fresh (< 24h)
+    if cache_file.exists() and (time.time() - cache_file.stat().st_mtime) < 86400:
+        try:
+            return json.loads(cache_file.read_text())
+        except Exception:
+            pass  # corrupt cache — fall through to refetch
+
+    try:
+        url = f"https://rcan.dev/schemas/{schema_name}"
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            cache_file.write_text(json.dumps(data))
+            return data
+    except Exception:
+        return None  # graceful degradation — network unreachable or schema not yet published
+
+
+def _validate_against_schema(
+    config: dict, schema: dict, result: ValidationResult
+) -> None:
+    """Validate *config* against *schema* using jsonschema if available."""
+    try:
+        import jsonschema  # type: ignore[import]
+
+        validator = jsonschema.Draft7Validator(schema)
+        errors = sorted(validator.iter_errors(config), key=lambda e: list(e.path))
+        if errors:
+            for err in errors:
+                path = ".".join(str(p) for p in err.path) or "(root)"
+                result.fail(f"Schema: {path}: {err.message}")
+        else:
+            result.note("  ✓ Canonical schema valid (rcan.dev)")
+    except ImportError:
+        result.warn(
+            "jsonschema not installed — skipping canonical schema validation (pip install jsonschema)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Watch mode helper (Part 4)
+# ---------------------------------------------------------------------------
+
+
+def watch_file(path: str, validate_fn: Callable[[str], ValidationResult]) -> None:
+    """Poll *path* for changes and re-validate on each modification.
+
+    Args:
+        path:        Path to the file to watch.
+        validate_fn: Callable that accepts the file path and returns a
+                     :class:`ValidationResult`.
+    """
+    import os
+    import time
+
+    last_mtime = 0.0
+    print(f"Watching {path} for changes (Ctrl+C to stop)...")
+    try:
+        while True:
+            try:
+                mtime = os.stat(path).st_mtime
+                if mtime != last_mtime:
+                    last_mtime = mtime
+                    print(
+                        f"\n[{time.strftime('%H:%M:%S')}] File changed — re-validating..."
+                    )
+                    result = validate_fn(path)
+                    _print_result(result)
+                time.sleep(1)
+            except FileNotFoundError:
+                print(f"File not found: {path}")
+                time.sleep(2)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+
+
+# ---------------------------------------------------------------------------
 # Validators
 # ---------------------------------------------------------------------------
 
@@ -59,8 +184,9 @@ def validate_uri(uri_str: str) -> ValidationResult:
     result = ValidationResult()
     try:
         from rcan.address import RobotURI
+
         uri = RobotURI.parse(uri_str)
-        result.note(f"✅ Valid RCAN URI")
+        result.note("✅ Valid RCAN URI")
         result.note(f"   Registry:     {uri.registry}")
         result.note(f"   Manufacturer: {uri.manufacturer}")
         result.note(f"   Model:        {uri.model}")
@@ -99,6 +225,7 @@ def validate_message(data: dict | str) -> ValidationResult:
     if result.ok:
         try:
             from rcan.message import RCANMessage
+
             msg = RCANMessage.from_dict(data)
             result.note(f"✅ RCAN message valid (v{msg.rcan})")
             result.note(f"   cmd:      {msg.cmd}")
@@ -118,11 +245,14 @@ def validate_message(data: dict | str) -> ValidationResult:
     return result
 
 
-def validate_config(config: dict | str) -> ValidationResult:
+def validate_config(
+    config: dict | str, *, fetch_schema: bool = True
+) -> ValidationResult:
     """
     Validate a robot RCAN YAML config dict.
 
-    Checks L1/L2/L3 conformance levels.
+    Checks L1/L2/L3 conformance levels.  If *fetch_schema* is True, also
+    attempts to validate against the canonical JSON schema from rcan.dev.
     """
     result = ValidationResult()
 
@@ -130,6 +260,7 @@ def validate_config(config: dict | str) -> ValidationResult:
         # Treat as YAML file path
         try:
             import yaml
+
             with open(config) as f:
                 config = yaml.safe_load(f) or {}
         except FileNotFoundError:
@@ -139,15 +270,15 @@ def validate_config(config: dict | str) -> ValidationResult:
             result.fail(f"Failed to parse config: {e}")
             return result
 
-    import re
-
     # Required top-level keys
     for req_key in ("rcan_version", "metadata", "agent"):
         if req_key not in config:
             result.fail(f"Missing required key: '{req_key}'")
 
     # rcan_version format check
-    rcan_version = config.get("rcan_version") or config.get("rcan_protocol", {}).get("version", "")
+    rcan_version = config.get("rcan_version") or config.get("rcan_protocol", {}).get(
+        "version", ""
+    )
     if rcan_version:
         if not re.match(r"^\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.]+)?$", str(rcan_version)):
             result.fail(
@@ -182,11 +313,28 @@ def validate_config(config: dict | str) -> ValidationResult:
     if not commitment.get("enabled"):
         result.warn("L3: commitment_chain not enabled (§16)")
 
-    # RRN check
-    if meta.get("rrn"):
-        result.note(f"✅ RRN registered: {meta['rrn']}")
+    # RRN check — validate format if present
+    rrn = meta.get("rrn")
+    if rrn:
+        if RRN_ANY_RE.match(str(rrn)):
+            result.note(f"✅ RRN registered: {rrn}")
+        else:
+            result.fail(
+                f"Invalid RRN format: '{rrn}'. "
+                "Expected RRN-<8–16 digits> or RRN-<PREFIX>-<8–16 digits>."
+            )
     else:
         result.warn("Robot not registered — run: castor register")
+
+    # Canonical JSON schema validation (Part 3)
+    if fetch_schema:
+        schema = _fetch_canonical_schema("rcan-config.schema.json")
+        if schema is not None:
+            _validate_against_schema(config, schema, result)
+        else:
+            result.warn(
+                "Could not fetch canonical schema from rcan.dev — skipping schema validation"
+            )
 
     if result.ok and not result.issues:
         l1_ok = not any("L1" in i for i in result.issues + result.warnings)
@@ -194,6 +342,141 @@ def validate_config(config: dict | str) -> ValidationResult:
         l3_ok = l2_ok and not any("L3" in i for i in result.warnings)
         level = "L3" if l3_ok else "L2" if l2_ok else "L1" if l1_ok else "FAIL"
         result.note(f"✅ Config valid — conformance level: {level}")
+    return result
+
+
+def validate_node(source: str, *, from_file: bool = False) -> ValidationResult:
+    """Validate an RCAN node manifest.
+
+    Args:
+        source:    URL of a registry node (fetches ``/.well-known/rcan-node.json``)
+                   or a local file path when *from_file* is ``True``.
+        from_file: If ``True``, *source* is treated as a local file path.
+
+    Returns:
+        :class:`ValidationResult` with per-check pass/fail details.
+
+    Exit codes (for CLI):
+        * 0 — PASS
+        * 1 — FAIL
+        * 2 — WARN
+    """
+    import time
+
+    result = ValidationResult()
+    manifest: dict[str, Any] = {}
+
+    if from_file:
+        result.note(f"Validating node manifest: {source} (local file)")
+        try:
+            with open(source) as f:
+                manifest = json.load(f)
+        except FileNotFoundError:
+            result.fail(f"File not found: {source}")
+            return result
+        except json.JSONDecodeError as e:
+            result.fail(f"Invalid JSON: {e}")
+            return result
+    else:
+        url = source.rstrip("/") + "/.well-known/rcan-node.json"
+        result.note(f"Validating node manifest: {source}")
+        req = urllib.request.Request(
+            url,
+            headers={"Accept": "application/json", "User-Agent": "rcan-validate/0.2"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                manifest = json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            result.fail(f"HTTP {exc.code} fetching {url}: {exc.reason}")
+            return result
+        except urllib.error.URLError as exc:
+            result.fail(f"Network error fetching {url}: {exc.reason}")
+            return result
+        except json.JSONDecodeError as exc:
+            result.fail(f"Invalid JSON from {url}: {exc}")
+            return result
+        except Exception as exc:
+            result.fail(f"Unexpected error fetching {url}: {exc}")
+            return result
+
+    total = 0
+    passed = 0
+
+    def check_pass(msg: str) -> None:
+        nonlocal total, passed
+        total += 1
+        passed += 1
+        result.note(f"  ✓ {msg}")
+
+    def check_fail(msg: str) -> None:
+        nonlocal total
+        total += 1
+        result.fail(f"  ✗ {msg}")
+
+    def check_warn(msg: str) -> None:
+        nonlocal total
+        total += 1
+        result.warn(f"  ⚠ {msg}")
+
+    # Required field checks
+    required_fields = [
+        "rcan_node_version",
+        "node_type",
+        "operator",
+        "namespace_prefix",
+        "public_key",
+        "api_base",
+    ]
+    for fld in required_fields:
+        if not manifest.get(fld):
+            check_fail(f"Missing required field: '{fld}'")
+
+    # Validate node_type
+    node_type = manifest.get("node_type", "")
+    if node_type in _VALID_NODE_TYPES:
+        check_pass(f"node_type: {node_type}")
+    elif manifest.get("node_type"):
+        check_fail(
+            f"node_type '{node_type}' invalid — must be one of: {', '.join(sorted(_VALID_NODE_TYPES))}"
+        )
+
+    # Validate public_key format
+    pk = str(manifest.get("public_key", ""))
+    if pk.startswith("ed25519:"):
+        check_pass("public_key: ed25519: prefix present")
+    elif pk:
+        check_fail(f"public_key must start with 'ed25519:' (got: {pk[:20]!r}...)")
+
+    # Validate api_base
+    api_base = str(manifest.get("api_base", ""))
+    if api_base.startswith("https://"):
+        # Check reachability (HEAD request, 5s timeout)
+        t0 = time.monotonic()
+        try:
+            req2 = urllib.request.Request(api_base, method="HEAD")
+            with urllib.request.urlopen(req2, timeout=5):
+                elapsed_ms = int((time.monotonic() - t0) * 1000)
+                check_pass(f"api_base reachable ({elapsed_ms}ms)")
+        except Exception:
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            check_warn(f"api_base not reachable ({elapsed_ms}ms) — may be intentional")
+    elif api_base:
+        check_fail(f"api_base must start with 'https://' (got: {api_base!r})")
+
+    # namespace_prefix check
+    ns = manifest.get("namespace_prefix", "")
+    if ns:
+        check_pass(f"namespace_prefix: {ns}")
+
+    # Final summary
+    status = (
+        "PASS"
+        if result.ok and not result.warnings
+        else ("WARN" if result.ok else "FAIL")
+    )
+    result.note(f"\n{status} ({passed}/{total} checks)")
+
     return result
 
 
@@ -212,12 +495,14 @@ def validate_audit_chain(path: str, secret: str | None = None) -> ValidationResu
     result = ValidationResult()
 
     import os
+
     if secret is None:
-        secret = os.environ.get("OPENCASTOR_COMMITMENT_SECRET", "opencastor-default-commitment-secret")
+        secret = os.environ.get(
+            "OPENCASTOR_COMMITMENT_SECRET", "opencastor-default-commitment-secret"
+        )
 
     try:
         from rcan import CommitmentRecord
-        import hashlib, hmac
 
         records = []
         with open(path) as f:
@@ -230,7 +515,7 @@ def validate_audit_chain(path: str, secret: str | None = None) -> ValidationResu
                     record = CommitmentRecord.from_dict(data)
                     records.append((i + 1, record))
                 except Exception as e:
-                    result.fail(f"Line {i+1}: parse error — {e}")
+                    result.fail(f"Line {i + 1}: parse error — {e}")
                     return result
 
         if not records:
@@ -241,10 +526,14 @@ def validate_audit_chain(path: str, secret: str | None = None) -> ValidationResu
         for lineno, record in records:
             # HMAC check
             if not record.verify(secret):
-                result.fail(f"Line {lineno}: HMAC invalid (record_id={record.record_id[:8]})")
+                result.fail(
+                    f"Line {lineno}: HMAC invalid (record_id={record.record_id[:8]})"
+                )
             # Chain linkage
             if prev_hash is not None and record.previous_hash != prev_hash:
-                result.fail(f"Line {lineno}: chain broken (expected prev={prev_hash[:12]}, got {str(record.previous_hash)[:12]})")
+                result.fail(
+                    f"Line {lineno}: chain broken (expected prev={prev_hash[:12]}, got {str(record.previous_hash)[:12]})"
+                )
             prev_hash = record.content_hash
 
         if result.ok:
@@ -258,7 +547,7 @@ def validate_audit_chain(path: str, secret: str | None = None) -> ValidationResu
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point
+# CLI helpers
 # ---------------------------------------------------------------------------
 
 
@@ -293,6 +582,16 @@ def main(argv: list[str] | None = None) -> int:
 
     p_cfg = sub.add_parser("config", help="Validate a robot RCAN YAML config")
     p_cfg.add_argument("file", help="YAML config file")
+    p_cfg.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch the file for changes and re-validate on each modification",
+    )
+    p_cfg.add_argument(
+        "--no-schema",
+        action="store_true",
+        help="Skip canonical JSON schema validation from rcan.dev",
+    )
 
     p_audit = sub.add_parser("audit", help="Verify a JSONL commitment chain")
     p_audit.add_argument("file", help="JSONL audit chain file")
@@ -303,12 +602,28 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     p_uri = sub.add_parser("uri", help="Validate a RCAN Robot URI")
-    p_uri.add_argument("uri", help="URI string e.g. rcan://registry.rcan.dev/acme/arm/v2/unit-001")
+    p_uri.add_argument(
+        "uri", help="URI string e.g. rcan://registry.rcan.dev/acme/arm/v2/unit-001"
+    )
+
+    p_node = sub.add_parser("node", help="Validate a RCAN registry node manifest")
+    p_node_src = p_node.add_mutually_exclusive_group()
+    p_node_src.add_argument(
+        "url",
+        nargs="?",
+        help="Base URL of registry node (fetches /.well-known/rcan-node.json)",
+    )
+    p_node_src.add_argument(
+        "--file",
+        dest="node_file",
+        metavar="PATH",
+        help="Validate a local rcan-node.json file instead",
+    )
 
     p_all = sub.add_parser("all", help="Run all applicable checks for a config")
     p_all.add_argument("file", help="YAML config file")
 
-    for p in (p_msg, p_cfg, p_audit, p_uri, p_all):
+    for p in (p_msg, p_cfg, p_audit, p_uri, p_node, p_all):
         p.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args(argv)
@@ -326,21 +641,41 @@ def main(argv: list[str] | None = None) -> int:
                 data = json.load(f)
         result = validate_message(data)
         if getattr(args, "json", False):
-            print(json.dumps({
-                "ok": result.ok, "issues": result.issues,
-                "warnings": result.warnings, "info": result.info
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "ok": result.ok,
+                        "issues": result.issues,
+                        "warnings": result.warnings,
+                        "info": result.info,
+                    },
+                    indent=2,
+                )
+            )
         else:
             _print_result(result)
         return 0 if result.ok else 1
 
     if args.cmd == "config":
-        result = validate_config(args.file)
+        fetch_schema = not getattr(args, "no_schema", False)
+        if getattr(args, "watch", False):
+            watch_file(
+                args.file, lambda p: validate_config(p, fetch_schema=fetch_schema)
+            )
+            return 0
+        result = validate_config(args.file, fetch_schema=fetch_schema)
         if getattr(args, "json", False):
-            print(json.dumps({
-                "ok": result.ok, "issues": result.issues,
-                "warnings": result.warnings, "info": result.info
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "ok": result.ok,
+                        "issues": result.issues,
+                        "warnings": result.warnings,
+                        "info": result.info,
+                    },
+                    indent=2,
+                )
+            )
         else:
             _print_result(result)
         return 0 if result.ok else 1
@@ -351,6 +686,24 @@ def main(argv: list[str] | None = None) -> int:
         _print_result(result)
         return 0 if result.ok else 1
 
+    if args.cmd == "node":
+        node_file = getattr(args, "node_file", None)
+        url = getattr(args, "url", None)
+        if node_file:
+            result = validate_node(node_file, from_file=True)
+        elif url:
+            result = validate_node(url)
+        else:
+            parser.error("rcan-validate node requires a URL or --file PATH")
+            return 1
+        _print_result(result)
+        # Exit 0=PASS, 1=FAIL, 2=WARN
+        if not result.ok:
+            return 1
+        if result.warnings:
+            return 2
+        return 0
+
     if args.cmd == "all":
         print(f"\n📋 rcan-validate all — {args.file}\n")
         cfg_result = validate_config(args.file)
@@ -359,6 +712,7 @@ def main(argv: list[str] | None = None) -> int:
 
         # If audit chain exists
         import os
+
         chain_path = ".opencastor-commitments.jsonl"
         if os.path.exists(chain_path):
             print(f"\nAudit chain ({chain_path}):")
