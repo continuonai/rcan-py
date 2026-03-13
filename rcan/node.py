@@ -94,7 +94,7 @@ def _parse_rrn_prefix(rrn: str) -> Optional[str]:
 
         >>> _parse_rrn_prefix("RRN-BD-00000001")
         'BD'
-        >>> _parse_rrn_prefix("RRN-00000001")
+        >>> _parse_rrn_prefix("RRN-000000000001")
         None
     """
     m = _RRN_PREFIXED.match(rrn)
