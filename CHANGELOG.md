@@ -4,6 +4,14 @@ All notable changes to rcan-py are documented here.
 
 ---
 
+## [0.3.1] — 2026-03-13
+
+### Changed
+- `SPEC_VERSION` updated to `"1.3"` (was `"1.2"`) — tracks RCAN v1.3 stable release (§21 Registry Integration, L4 conformance)
+- `rcan/__init__.py`, `rcan/message.py`: `SPEC_VERSION` and `__spec_version__` = `"1.3"`
+
+---
+
 ## [0.3.0] — 2026-03-06
 
 ### Added
