@@ -41,9 +41,9 @@ from rcan.message import RCANMessage, RCANResponse
 from rcan.node import NodeClient
 from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
 
-__version__ = "0.3.1"
-__spec_version__ = "1.3"
-SPEC_VERSION = "1.3"
+__version__ = "0.4.0"
+__spec_version__ = "1.4"
+SPEC_VERSION = "1.4"
 
 __all__ = [
     # Address

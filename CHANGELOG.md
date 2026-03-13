@@ -4,6 +4,17 @@ All notable changes to rcan-py are documented here.
 
 ---
 
+## [0.4.0] — 2026-03-13
+
+### Changed
+- `SPEC_VERSION` = `"1.4"`, `__spec_version__` = `"1.4"` — tracks RCAN v1.4 stable release
+- Package version `0.3.1` → `0.4.0` (minor bump for spec version milestone)
+
+### Added
+- `rcan-validate --version` now reports `rcan-py 0.4.0 / spec 1.4`
+
+---
+
 ## [0.3.1] — 2026-03-13
 
 ### Changed

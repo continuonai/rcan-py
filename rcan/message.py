@@ -19,7 +19,7 @@ from rcan.exceptions import RCANValidationError
 _REQUIRED_CMD_FIELDS = {"rcan", "cmd", "target"}
 
 # RCAN spec version this SDK implements
-SPEC_VERSION = "1.3"
+SPEC_VERSION = "1.4"
 
 
 @dataclass
