@@ -278,7 +278,7 @@ class TestDiscover:
     @patch("urllib.request.urlopen")
     def test_discover_legacy_rrn_returns_root(self, mock_urlopen):
         mock_urlopen.return_value = _mock_urlopen(ROOT_MANIFEST)
-        node = self.client.discover("RRN-00000042")
+        node = self.client.discover("RRN-000000000042")
         assert node["node_type"] == "root"
 
     def test_discover_invalid_rrn(self):

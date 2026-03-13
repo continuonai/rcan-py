@@ -11,7 +11,7 @@ from rcan.exceptions import RCANRegistryError
 
 
 ROBOT_DATA = {
-    "rrn": "RRN-00000042",
+    "rrn": "RRN-000000000042",
     "uri": "rcan://registry.rcan.dev/acme/arm/v2/unit-001",
     "manufacturer": "acme",
     "model": "arm",
@@ -40,7 +40,7 @@ def make_mock_response(data: dict, status: int = 200):
 
 def test_registry_entry_basic():
     entry = RegistryEntry.from_dict(ROBOT_DATA)
-    assert entry.rrn == "RRN-00000042"
+    assert entry.rrn == "RRN-000000000042"
     assert entry.manufacturer == "acme"
     assert entry.model == "arm"
     assert entry.version == "v2"
@@ -56,13 +56,13 @@ def test_registry_entry_uri():
 
 
 def test_registry_entry_no_uri():
-    entry = RegistryEntry.from_dict({"rrn": "RRN-00000001"})
+    entry = RegistryEntry.from_dict({"rrn": "RRN-000000000001"})
     assert entry.uri is None
 
 
 def test_registry_entry_repr():
     entry = RegistryEntry.from_dict(ROBOT_DATA)
-    assert "RRN-00000042" in repr(entry)
+    assert "RRN-000000000042" in repr(entry)
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_registry_page_iter():
     page = RegistryPage.from_dict(data)
     entries = list(page)
     assert len(entries) == 1
-    assert entries[0].rrn == "RRN-00000042"
+    assert entries[0].rrn == "RRN-000000000042"
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def test_update_requires_auth():
     client = RegistryClient()
     with pytest.raises(RCANRegistryError, match="API key required"):
         import asyncio
-        asyncio.run(client.update("RRN-00000001", {"weight_kg": 1.0}))
+        asyncio.run(client.update("RRN-000000000001", {"weight_kg": 1.0}))
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ def test_get_robot_no_httpx():
     with patch.dict("sys.modules", {"httpx": None}):
         import asyncio
         with pytest.raises((ImportError, Exception)):
-            asyncio.run(client.get_robot("RRN-00000001"))
+            asyncio.run(client.get_robot("RRN-000000000001"))
 
 
 # ---------------------------------------------------------------------------
@@ -137,9 +137,9 @@ async def test_get_robot_success():
     with patch("httpx.AsyncClient", return_value=mock_httpx_client):
         # Prime the internal client
         client._client = mock_httpx_client
-        entry = await client.get_robot("RRN-00000042")
+        entry = await client.get_robot("RRN-000000000042")
 
-    assert entry.rrn == "RRN-00000042"
+    assert entry.rrn == "RRN-000000000042"
     assert entry.manufacturer == "acme"
 
 
@@ -162,7 +162,7 @@ async def test_list_robots_success():
 async def test_register_success():
     client = RegistryClient(api_key="rcan_test_key")
     result_data = {
-        "rrn": "RRN-00000043",
+        "rrn": "RRN-000000000043",
         "uri": "rcan://registry.rcan.dev/acme/arm/v2/unit-002",
         "registered_at": "2026-03-05T00:00:00Z",
     }
@@ -177,14 +177,14 @@ async def test_register_success():
     result = await client.register(
         manufacturer="acme", model="arm", version="v2", device_id="unit-002"
     )
-    assert result["rrn"] == "RRN-00000043"
+    assert result["rrn"] == "RRN-000000000043"
 
 
 @pytest.mark.asyncio
 async def test_get_robot_404():
     client = RegistryClient()
     mock_resp = make_mock_response({}, status=404)
-    mock_resp.url = "/api/v1/robots/RRN-99999999"
+    mock_resp.url = "/api/v1/robots/RRN-000099999999"
 
     mock_httpx_client = AsyncMock()
     mock_httpx_client.get = AsyncMock(return_value=mock_resp)
@@ -192,7 +192,7 @@ async def test_get_robot_404():
     client._client = mock_httpx_client
 
     with pytest.raises(RCANRegistryError, match="Not found"):
-        await client.get_robot("RRN-99999999")
+        await client.get_robot("RRN-000099999999")
 
 
 # ---------------------------------------------------------------------------

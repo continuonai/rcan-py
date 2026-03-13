@@ -12,7 +12,7 @@ Example:
         client = RegistryClient()  # no auth = read-only
 
         # Look up a robot
-        robot = await client.get_robot("RRN-00000042")
+        robot = await client.get_robot("RRN-000000000042")
         print(robot.uri)
 
         # Register (requires API key)
@@ -23,7 +23,7 @@ Example:
             version="v2",
             device_id="unit-001",
         )
-        print(result["rrn"])  # RRN-00000043
+        print(result["rrn"])  # RRN-000000000043
 
     asyncio.run(main())
 """
@@ -108,7 +108,7 @@ class RegistryClient:
         Look up a robot by RRN (Robot Registry Number).
 
         Args:
-            rrn: e.g. ``"RRN-00000042"``
+            rrn: e.g. ``"RRN-000000000042"``
 
         Returns:
             :class:`RegistryEntry` with URI, metadata, and verification tier.
