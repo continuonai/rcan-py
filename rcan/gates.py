@@ -10,7 +10,7 @@ Spec: https://rcan.dev/spec#section-16
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 

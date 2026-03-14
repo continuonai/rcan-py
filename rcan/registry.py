@@ -30,7 +30,6 @@ Example:
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from rcan.address import RobotURI
@@ -288,7 +287,6 @@ class RegistryClient:
     @staticmethod
     def _handle_response(resp: Any) -> dict:
         try:
-            import httpx
             if resp.status_code == 404:
                 raise RCANRegistryError(f"Not found (404): {resp.url}")
             if resp.status_code == 401:
