@@ -201,9 +201,18 @@ def validate_message(data: dict | str) -> ValidationResult:
     """
     Validate a RCAN message dict or JSON string.
 
+    Accepts two message formats:
+
+    1. **Wire format** (classic rcan-py): ``{rcan, cmd, target, ...}``
+    2. **OpenCastor RCANMessage format**: ``{type, source, target, payload, ...}``
+
+    For OpenCastor format:
+    - ``source`` or ``source_ruri`` accepted as the source field
+    - ``target`` or ``target_ruri`` accepted as the target field
+    - ``type`` may be an int (MessageType enum value) or a string name
+
     Checks:
-    - Required fields: rcan, cmd, target
-    - RCAN version format
+    - Required fields present (per detected format)
     - Target is a valid Robot URI
     - Confidence range [0.0, 1.0] if present
     - Signature structure if present
@@ -217,30 +226,77 @@ def validate_message(data: dict | str) -> ValidationResult:
             result.fail(f"Invalid JSON: {e}")
             return result
 
-    # Required fields
-    for field_name in ("rcan", "cmd", "target"):
-        if field_name not in data:
-            result.fail(f"Missing required field: '{field_name}'")
+    # Detect format: OpenCastor RCANMessage vs classic wire format.
+    # OpenCastor format is identified by the presence of a "type" field
+    # (an integer or string MessageType enum value) without a "cmd" field.
+    # Classic wire format uses "rcan" + "cmd" + "target".
+    has_type = "type" in data
+    has_cmd = "cmd" in data
+    has_source = "source" in data or "source_ruri" in data
+    has_target = "target" in data or "target_ruri" in data
+    is_opencastor_format = has_type and not has_cmd
 
-    if result.ok:
-        try:
-            from rcan.message import RCANMessage
+    if is_opencastor_format:
+        # OpenCastor RCANMessage format — validate directly
+        source = data.get("source") or data.get("source_ruri")
+        target = data.get("target") or data.get("target_ruri")
+        msg_type = data.get("type")
 
-            msg = RCANMessage.from_dict(data)
-            result.note(f"✅ RCAN message valid (v{msg.rcan})")
-            result.note(f"   cmd:      {msg.cmd}")
-            result.note(f"   target:   {msg.target}")
-            if msg.confidence is not None:
-                result.note(f"   confidence: {msg.confidence}")
-            if msg.is_signed:
-                sig = msg.signature
-                result.note(f"   signature: alg={sig.get('alg')}, kid={sig.get('kid')}")
+        if not source:
+            result.fail("Missing required field: 'source' (or 'source_ruri')")
+        if not target:
+            result.fail("Missing required field: 'target' (or 'target_ruri')")
+        if msg_type is None:
+            result.fail("Missing required field: 'type'")
+
+        if result.ok:
+            # Validate type is int or recognized string
+            if isinstance(msg_type, int):
+                result.note(f"✅ RCAN message valid (OpenCastor format, type={msg_type})")
+            elif isinstance(msg_type, str):
+                result.note(f"✅ RCAN message valid (OpenCastor format, type={msg_type!r})")
             else:
+                result.fail(f"'type' must be an int or string, got {type(msg_type).__name__}")
+
+            if result.ok:
+                # Validate target URI if it looks like an RCAN URI
+                if isinstance(target, str) and target.startswith("rcan://"):
+                    try:
+                        from rcan.address import RobotURI
+                        RobotURI.parse(target)
+                        result.note(f"   target:   {target}")
+                    except Exception:
+                        result.warn(f"target URI may not be RFC-compliant: {target!r}")
+                else:
+                    result.note(f"   target:   {target}")
+
+                result.note(f"   source:   {source}")
                 result.warn("Message is unsigned (recommended for production)")
-            if not msg.is_ai_driven:
-                result.warn("No confidence score — add for RCAN §16 AI accountability")
-        except Exception as e:
-            result.fail(f"Message validation failed: {e}")
+    else:
+        # Classic wire format: {rcan, cmd, target}
+        for field_name in ("rcan", "cmd", "target"):
+            if field_name not in data:
+                result.fail(f"Missing required field: '{field_name}'")
+
+        if result.ok:
+            try:
+                from rcan.message import RCANMessage
+
+                msg = RCANMessage.from_dict(data)
+                result.note(f"✅ RCAN message valid (v{msg.rcan})")
+                result.note(f"   cmd:      {msg.cmd}")
+                result.note(f"   target:   {msg.target}")
+                if msg.confidence is not None:
+                    result.note(f"   confidence: {msg.confidence}")
+                if msg.is_signed:
+                    sig = msg.signature
+                    result.note(f"   signature: alg={sig.get('alg')}, kid={sig.get('kid')}")
+                else:
+                    result.warn("Message is unsigned (recommended for production)")
+                if not msg.is_ai_driven:
+                    result.warn("No confidence score — add for RCAN §16 AI accountability")
+            except Exception as e:
+                result.fail(f"Message validation failed: {e}")
 
     return result
 

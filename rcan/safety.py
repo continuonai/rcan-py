@@ -35,10 +35,15 @@ __all__ = [
     "make_resume_message",
     "is_safety_message",
     "validate_safety_message",
+    "TRANSPARENCY_MESSAGE_TYPE",
+    "make_transparency_message",
 ]
 
 # RCAN MessageType 6 — SAFETY
 SAFETY_MESSAGE_TYPE = 6
+
+# RCAN MessageType 18 — TRANSPARENCY (EU AI Act Art. 13)
+TRANSPARENCY_MESSAGE_TYPE = 18
 
 # Valid safety_event values per RCAN §6
 VALID_SAFETY_EVENTS = frozenset({"ESTOP", "STOP", "RESUME"})
@@ -194,3 +199,73 @@ def validate_safety_message(msg: dict[str, Any]) -> list[str]:
         errors.append("message_id is required")
 
     return errors
+
+
+def make_transparency_message(
+    source_ruri: str,
+    target_ruri: str,
+    operator: str,
+    capabilities: list[str],
+    model_family: str = "unknown",
+    limitations: list[str] | None = None,
+    contact: str = "",
+    rcan_version: str = "1.4",
+    p66_conformance_pct: float = 0.0,
+    audit_enabled: bool = True,
+) -> dict[str, Any]:
+    """Build a RCAN Art. 13 EU AI Act transparency disclosure message.
+
+    EU AI Act Article 13 requires AI systems to disclose their AI nature,
+    capabilities, operator identity, and contact information to persons
+    they interact with. For RCAN robots, this is expressed as a
+    MessageType 18 (TRANSPARENCY) message.
+
+    Args:
+        source_ruri:         RURI of the robot sending the disclosure.
+        target_ruri:         RURI of the recipient (human display or broadcast).
+        operator:            Name of the deploying operator / organisation.
+        capabilities:        List of robot capabilities (e.g. ["navigation", "speech"]).
+        model_family:        AI model family in use (not version, e.g. "claude-sonnet").
+        limitations:         Known limitations of the robot.
+        contact:             Contact address for complaints / inquiries.
+        rcan_version:        RCAN protocol version string.
+        p66_conformance_pct: Protocol 66 conformance percentage (0–100).
+        audit_enabled:       Whether actions are recorded to an audit trail.
+
+    Returns:
+        A dict representing the TRANSPARENCY disclosure message.
+
+    Example::
+
+        from rcan.safety import make_transparency_message
+
+        msg = make_transparency_message(
+            source_ruri="rcan://rcan.dev/acme/arm/v1/unit-001",
+            target_ruri="rcan://local/human-display",
+            operator="Acme Robotics",
+            capabilities=["navigation", "manipulation", "speech"],
+            model_family="claude-sonnet",
+            limitations=["cannot lift > 5 kg", "outdoor use only in dry conditions"],
+            contact="safety@acme-robotics.example",
+            p66_conformance_pct=87.5,
+            audit_enabled=True,
+        )
+    """
+    return {
+        "type": TRANSPARENCY_MESSAGE_TYPE,
+        "source": source_ruri,
+        "target": target_ruri,
+        "message_id": str(uuid.uuid4()),
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "payload": {
+            "ai_system": True,  # always True per EU AI Act Art. 13
+            "model_family": model_family,
+            "operator": operator,
+            "capabilities": capabilities,
+            "limitations": limitations if limitations is not None else [],
+            "contact": contact,
+            "rcan_version": rcan_version,
+            "p66_conformance_pct": p66_conformance_pct,
+            "audit_enabled": audit_enabled,
+        },
+    }

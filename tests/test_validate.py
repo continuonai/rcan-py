@@ -336,3 +336,112 @@ def test_validation_result_warn():
     r.warn("use TLS")
     assert r.ok  # warnings don't fail
     assert "use TLS" in r.warnings
+
+
+# ---------------------------------------------------------------------------
+# OpenCastor RCANMessage format tests
+# ---------------------------------------------------------------------------
+
+
+class TestValidateMessageOpenCastorFormat:
+    """validate_message() should accept OpenCastor's RCANMessage envelope."""
+
+    def test_opencastor_format_int_type(self):
+        """OpenCastor format with integer type accepted."""
+        msg = {
+            "type": 3,
+            "source": "rcan://local/bob",
+            "target": "rcan://local/alex",
+            "payload": {"request": "status"},
+            "priority": 1,
+            "message_id": "test-123",
+            "timestamp": "2026-03-14T00:00:00Z",
+        }
+        result = validate_message(msg)
+        assert result.ok, f"Expected ok, got issues: {result.issues}"
+
+    def test_opencastor_format_string_type(self):
+        """OpenCastor format with string type (enum name) accepted."""
+        msg = {
+            "type": "STATUS",
+            "source": "rcan://local/bob",
+            "target": "rcan://local/alex",
+            "payload": {},
+        }
+        result = validate_message(msg)
+        assert result.ok, f"Expected ok, got issues: {result.issues}"
+
+    def test_opencastor_format_source_ruri_alias(self):
+        """source_ruri is accepted as an alias for source."""
+        msg = {
+            "type": 3,
+            "source_ruri": "rcan://local/bob",
+            "target_ruri": "rcan://local/alex",
+            "payload": {},
+        }
+        result = validate_message(msg)
+        assert result.ok, f"Expected ok, got issues: {result.issues}"
+
+    def test_opencastor_format_missing_source_fails(self):
+        """Missing source (and source_ruri) should fail."""
+        msg = {
+            "type": 3,
+            "target": "rcan://local/alex",
+            "payload": {},
+        }
+        result = validate_message(msg)
+        assert not result.ok
+        assert any("source" in i for i in result.issues)
+
+    def test_opencastor_format_missing_target_fails(self):
+        """Missing target (and target_ruri) should fail."""
+        msg = {
+            "type": 3,
+            "source": "rcan://local/bob",
+            "payload": {},
+        }
+        result = validate_message(msg)
+        assert not result.ok
+        assert any("target" in i for i in result.issues)
+
+    def test_opencastor_format_missing_type_falls_back_to_wire(self):
+        """Message without 'type' is treated as wire format (needs rcan/cmd/target)."""
+        msg = {
+            "source": "rcan://local/bob",
+            "target": "rcan://local/alex",
+            "payload": {},
+        }
+        result = validate_message(msg)
+        # Wire format requires rcan + cmd — should fail
+        assert not result.ok
+
+    def test_classic_wire_format_still_works(self):
+        """Classic wire format {rcan, cmd, target} continues to pass."""
+        msg = {
+            "rcan": "1.4",
+            "cmd": "stop",
+            "target": "rcan://rcan.dev/acme/arm/v1/unit-001",
+        }
+        result = validate_message(msg)
+        assert result.ok, f"Expected ok, got issues: {result.issues}"
+
+    def test_transparency_message_type(self):
+        """MessageType 18 (TRANSPARENCY) accepted in OpenCastor format."""
+        msg = {
+            "type": 18,
+            "source": "rcan://local/robot01",
+            "target": "rcan://local/human-display",
+            "payload": {
+                "ai_system": True,
+                "model_family": "claude-sonnet",
+                "operator": "example-company",
+                "capabilities": ["navigation", "speech"],
+                "limitations": ["cannot lift > 2kg"],
+                "contact": "safety@example.com",
+                "rcan_version": "1.4",
+                "p66_conformance_pct": 87,
+                "audit_enabled": True,
+            },
+        }
+        result = validate_message(msg)
+        assert result.ok, f"Expected ok, got issues: {result.issues}"

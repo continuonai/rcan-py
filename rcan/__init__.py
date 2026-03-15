@@ -37,11 +37,11 @@ from rcan.exceptions import (
     RCANValidationError,
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
-from rcan.message import RCANMessage, RCANResponse
+from rcan.message import RCANMessage, RCANResponse, MessageType
 from rcan.node import NodeClient
 from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 __spec_version__ = "1.4"
 SPEC_VERSION = "1.4"
 
@@ -51,6 +51,7 @@ __all__ = [
     # Message
     "RCANMessage",
     "RCANResponse",
+    "MessageType",
     # Audit
     "CommitmentRecord",
     # Gates

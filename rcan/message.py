@@ -12,6 +12,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from enum import IntEnum
+
 from rcan.address import RobotURI
 from rcan.exceptions import RCANValidationError
 
@@ -20,6 +22,27 @@ _REQUIRED_CMD_FIELDS = {"rcan", "cmd", "target"}
 
 # RCAN spec version this SDK implements
 SPEC_VERSION = "1.4"
+
+
+class MessageType(IntEnum):
+    """RCAN message type codes.
+
+    These correspond to the ``type`` field in OpenCastor's RCANMessage format.
+    """
+
+    COMMAND = 1
+    RESPONSE = 2
+    STATUS = 3
+    HEARTBEAT = 4
+    CONFIG = 5
+    SAFETY = 6
+    AUTH = 7
+    AUTHORIZE = 8
+    PENDING_AUTH = 9
+    INVOKE = 10
+    INVOKE_RESULT = 11
+    INVOKE_CANCEL = 12
+    TRANSPARENCY = 18  # EU AI Act Art. 13 — disclose AI nature to humans
 
 
 @dataclass
