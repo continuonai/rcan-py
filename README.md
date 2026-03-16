@@ -306,8 +306,10 @@ if gate.allows(my_confidence):
 - **Quickstart**: https://rcan.dev/quickstart
 - **Spec**: https://rcan.dev/spec
 - **Registry**: https://rcan.dev/registry
-- **rcan-ts**: https://github.com/continuonai/rcan-ts
-- **OpenCastor**: https://github.com/craigm26/OpenCastor
+- **rcan-ts** (TypeScript SDK): https://github.com/continuonai/rcan-ts · [npm](https://www.npmjs.com/package/@continuonai/rcan)
+- **OpenCastor** (Python robot runtime, RCAN reference implementation): https://github.com/craigm26/OpenCastor
+- **OpenCastor Fleet UI** (Flutter web app for remote robot management): https://app.opencastor.com
+- **Robot Registry Foundation** (global robot identity registry): https://robotregistryfoundation.org
 - **GitHub**: https://github.com/continuonai/rcan-py
 - **Issues**: https://github.com/continuonai/rcan-spec/issues
 
