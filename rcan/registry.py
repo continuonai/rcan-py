@@ -34,6 +34,8 @@ from typing import Any
 
 from rcan.address import RobotURI
 from rcan.exceptions import RCANRegistryError, RCANTimeoutError
+from rcan.version import SPEC_VERSION
+from rcan.message import SPEC_VERSION
 
 
 
@@ -202,7 +204,7 @@ class RegistryClient:
             "model": model,
             "version": version,
             "device_id": device_id,
-            "rcan_version": "1.2",
+            "rcan_version": SPEC_VERSION,  # single source of truth: rcan/message.py
             "metadata": metadata or {},
         }
         return await self._post("/api/v1/robots", payload)
