@@ -35,15 +35,85 @@ from rcan.exceptions import (
     RCANSignatureError,
     RCANTimeoutError,
     RCANValidationError,
+    # v1.5 exceptions
+    VersionIncompatibleError,
+    ReplayAttackError,
+    ClockDriftError,
+    DelegationChainExceededError,
+    DelegationVerificationError,
+    QoSAckTimeoutError,
+    SafetyHaltError,
+    ConfigAuthorizationError,
+    ConfigHashMismatchError,
+    RevocationError,
+    ConsentError,
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
-from rcan.message import RCANMessage, RCANResponse, MessageType
+from rcan.message import (
+    RCANMessage,
+    RCANResponse,
+    MessageType,
+    SenderType,
+    make_cloud_relay_message,
+    validate_version_compat,
+)
 from rcan.node import NodeClient
 from rcan.types import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
+from rcan.version import SPEC_VERSION, SUPPORTED_FEATURES
 
-__version__ = "0.4.2"
-__spec_version__ = "1.4"
-SPEC_VERSION = "1.4"
+# v1.5 modules — Replay Prevention (GAP-03)
+from rcan.replay import ReplayCache, validate_replay
+
+# v1.5 modules — Clock Synchronization (GAP-04)
+from rcan.clock import ClockSyncStatus, check_clock_sync, assert_clock_synced
+
+# v1.5 modules — QoS / Delivery Guarantees (GAP-11)
+from rcan.qos import QoSLevel, QoSManager, make_estop_with_qos
+
+# v1.5 modules — Config Update (GAP-07)
+from rcan.config_update import ConfigUpdateMessage, make_config_update, validate_config_update
+
+# v1.5 modules — Key Rotation (GAP-09)
+from rcan.keys import KeyRotationMessage, KeyStore, make_key_rotation_message
+
+# v1.5 modules — Consent Wire Protocol (GAP-05)
+from rcan.consent import (
+    ConsentRequestPayload,
+    ConsentGrantPayload,
+    ConsentDenyPayload,
+    make_consent_request,
+    make_consent_grant,
+    make_consent_deny,
+    validate_consent_message,
+)
+
+# v1.5 modules — Robot Identity Revocation (GAP-02)
+from rcan.revocation import RevocationStatus, RevocationCache, check_revocation, make_revocation_broadcast
+
+# v1.5 modules — Training Data Consent (GAP-10)
+from rcan.training_consent import (
+    DataCategory,
+    TrainingConsentRequest,
+    make_training_consent_request,
+    make_training_consent_grant,
+    make_training_consent_deny,
+)
+
+# v1.5 modules — Command Delegation Chain (GAP-01)
+from rcan.delegation import (
+    DelegationHop,
+    add_delegation_hop,
+    validate_delegation_chain,
+)
+
+# v1.5 modules — Offline Operation Mode (GAP-06)
+from rcan.offline import OfflineModeManager, OfflineStatus
+
+# v1.5 modules — Fault Reporting (GAP-20)
+from rcan.fault import FaultCode, FaultReport, make_fault_report
+
+__version__ = "0.5.0"
+__spec_version__ = "1.5"
 
 __all__ = [
     # Address
@@ -52,13 +122,16 @@ __all__ = [
     "RCANMessage",
     "RCANResponse",
     "MessageType",
+    "SenderType",
+    "make_cloud_relay_message",
+    "validate_version_compat",
     # Audit
     "CommitmentRecord",
     # Gates
     "ConfidenceGate",
     "HiTLGate",
     "GateResult",
-    # Exceptions
+    # Exceptions — original
     "RCANError",
     "RCANAddressError",
     "RCANGateError",
@@ -67,6 +140,18 @@ __all__ = [
     "RCANSignatureError",
     "RCANTimeoutError",
     "RCANValidationError",
+    # Exceptions — v1.5
+    "VersionIncompatibleError",
+    "ReplayAttackError",
+    "ClockDriftError",
+    "DelegationChainExceededError",
+    "DelegationVerificationError",
+    "QoSAckTimeoutError",
+    "SafetyHaltError",
+    "ConfigAuthorizationError",
+    "ConfigHashMismatchError",
+    "RevocationError",
+    "ConsentError",
     # Node federation
     "NodeClient",
     # Types
@@ -77,6 +162,56 @@ __all__ = [
     # Version
     "__version__",
     "SPEC_VERSION",
+    "SUPPORTED_FEATURES",
+    # v1.5 — Replay Prevention (GAP-03)
+    "ReplayCache",
+    "validate_replay",
+    # v1.5 — Clock Sync (GAP-04)
+    "ClockSyncStatus",
+    "check_clock_sync",
+    "assert_clock_synced",
+    # v1.5 — QoS (GAP-11)
+    "QoSLevel",
+    "QoSManager",
+    "make_estop_with_qos",
+    # v1.5 — Config Update (GAP-07)
+    "ConfigUpdateMessage",
+    "make_config_update",
+    "validate_config_update",
+    # v1.5 — Key Rotation (GAP-09)
+    "KeyRotationMessage",
+    "KeyStore",
+    "make_key_rotation_message",
+    # v1.5 — Consent Wire Protocol (GAP-05)
+    "ConsentRequestPayload",
+    "ConsentGrantPayload",
+    "ConsentDenyPayload",
+    "make_consent_request",
+    "make_consent_grant",
+    "make_consent_deny",
+    "validate_consent_message",
+    # v1.5 — Robot Identity Revocation (GAP-02)
+    "RevocationStatus",
+    "RevocationCache",
+    "check_revocation",
+    "make_revocation_broadcast",
+    # v1.5 — Training Data Consent (GAP-10)
+    "DataCategory",
+    "TrainingConsentRequest",
+    "make_training_consent_request",
+    "make_training_consent_grant",
+    "make_training_consent_deny",
+    # v1.5 — Command Delegation Chain (GAP-01)
+    "DelegationHop",
+    "add_delegation_hop",
+    "validate_delegation_chain",
+    # v1.5 — Offline Operation Mode (GAP-06)
+    "OfflineModeManager",
+    "OfflineStatus",
+    # v1.5 — Fault Reporting (GAP-20)
+    "FaultCode",
+    "FaultReport",
+    "make_fault_report",
     # Sub-modules (imported explicitly)
     # rcan.registry — RegistryClient (requires rcan[http])
     # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])

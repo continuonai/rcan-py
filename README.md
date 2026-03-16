@@ -4,7 +4,7 @@ Official Python SDK for the [RCAN Robot Communication Protocol](https://rcan.dev
 
 RCAN (Robot Communication and Addressing Network) is an open protocol for robot networking built from safety requirements outward. It provides globally unique robot addressing, authenticated command chains, forensic audit trails, and safety gates.
 
-[![Spec](https://img.shields.io/badge/RCAN-v1.2-blue)](https://rcan.dev/spec)
+[![Spec](https://img.shields.io/badge/RCAN-v1.5-blue)](https://rcan.dev/spec)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/rcan)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -207,13 +207,44 @@ Every registered robot has a verification tier. SDKs expose this in resolved rec
 | 🔵 Partner | Official partner program | Signed partnership agreement |
 | ✅ Certified | Third-party tested | Passed conformance test suite |
 
+## RCAN v1.5 — New in v0.5.0
+
+This release closes 18 security and protocol gaps identified in the v1.5 gap analysis:
+
+| Module | Gap | Description |
+|--------|-----|-------------|
+| `rcan.replay` | GAP-03 | Replay attack prevention (sliding-window msg_id cache) |
+| `rcan.clock` | GAP-04 | NTP clock sync verification (`ClockSyncStatus`) |
+| `rcan.delegation` | GAP-01 | Command delegation chain (max 4 hops, Ed25519-signed) |
+| `rcan.revocation` | GAP-02 | Robot identity revocation with TTL cache |
+| `rcan.consent` | GAP-05 | Consent wire protocol (MessageType 20/21/22) |
+| `rcan.training_consent` | GAP-10 | Training data consent (GDPR/EU AI Act Annex III §5) |
+| `rcan.qos` | GAP-11 | QoS delivery (FIRE_AND_FORGET / ACKNOWLEDGED / EXACTLY_ONCE) |
+| `rcan.config_update` | GAP-07 | CONFIG_UPDATE protocol with safety scope enforcement |
+| `rcan.keys` | GAP-09 | Key rotation with JWKS-compatible KeyStore |
+| `rcan.offline` | GAP-06 | Offline operation mode (ESTOP always allowed) |
+| `rcan.fault` | GAP-20 | Structured fault reporting (`FaultCode` taxonomy) |
+| `rcan.message` | GAP-08,12,13,15,19 | `SenderType`, `rcan_version`, `group_id`, `read_only`, `presence_verified` |
+
 ## Spec Compliance
 
-This SDK implements [RCAN v1.2](https://rcan.dev/spec), including:
+This SDK implements [RCAN v1.5](https://rcan.dev/spec), including:
 - §2 Robot Addressing (Robot URI)
-- §3 Message format and serialization
+- §3 Message format, serialization, and version compatibility (§3.5)
+- §5.3 Quality of Service levels
+- §8.3 Replay Attack Prevention
+- §8.4 Clock Synchronization Requirements
+- §8.5 Sender Type and Service Identity
+- §8.6 Key Lifecycle and Rotation
+- §9.2 CONFIG_UPDATE Wire Protocol
+- §11.2 Consent Wire Protocol
+- §12 Command Delegation and Chain of Custody
+- §13 Robot Identity Revocation
+- §14 Offline Operation Mode
 - §16 AI Accountability Layer (confidence gate, HiTL gate, thought log)
-- §17 Distributed Registry Node Protocol (NodeClient, RRN resolution)
+- §16 Fault Reporting Taxonomy
+- §17 Biometric and Training Data Consent
+- §20 Audit Trail Export Protocol
 
 ## CLI
 

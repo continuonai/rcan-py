@@ -6,28 +6,35 @@ Spec: https://rcan.dev/spec#section-3
 
 from __future__ import annotations
 
+import copy
 import json
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
-
-from enum import IntEnum
+from enum import Enum, IntEnum
+from typing import Any, Optional
 
 from rcan.address import RobotURI
-from rcan.exceptions import RCANValidationError
+from rcan.exceptions import RCANValidationError, VersionIncompatibleError
+from rcan.version import SPEC_VERSION
+
+logger = logging.getLogger(__name__)
 
 # Required fields for a valid RCAN command message
 _REQUIRED_CMD_FIELDS = {"rcan", "cmd", "target"}
 
-# RCAN spec version this SDK implements
-SPEC_VERSION = "1.4"
 
+# ---------------------------------------------------------------------------
+# MessageType enum — canonical v1.5 integer table
+# ---------------------------------------------------------------------------
 
 class MessageType(IntEnum):
-    """RCAN message type codes.
+    """RCAN message type codes (v1.5 canonical table).
 
-    These correspond to the ``type`` field in OpenCastor's RCANMessage format.
+    Integers 1–12 and 18 preserve existing assignments for backward
+    compatibility. New types are assigned from 17 and 19 onward per
+    the v1.5 canonicalization.
     """
 
     COMMAND = 1
@@ -42,8 +49,99 @@ class MessageType(IntEnum):
     INVOKE = 10
     INVOKE_RESULT = 11
     INVOKE_CANCEL = 12
-    TRANSPARENCY = 18  # EU AI Act Art. 13 — disclose AI nature to humans
+    TRANSPARENCY = 18  # EU AI Act Art. 13 — KEEP at 18 for backward compat
 
+    # v1.5 additions
+    COMMAND_ACK = 17             # Acknowledgement for QoS ≥ 1
+    ROBOT_REVOCATION = 19        # Broadcast: revoke robot identity (GAP-02)
+    CONSENT_REQUEST = 20         # Request cross-robot consent (GAP-05)
+    CONSENT_GRANT = 21           # Owner grants consent (GAP-05)
+    CONSENT_DENY = 22            # Owner denies consent (GAP-05)
+    FLEET_COMMAND = 23           # Broadcast command to robot group (GAP-13)
+    SUBSCRIBE = 24               # Subscribe to telemetry stream (GAP-15)
+    UNSUBSCRIBE = 25             # Cancel telemetry subscription (GAP-15)
+    FAULT_REPORT = 26            # Structured fault report (GAP-20)
+    KEY_ROTATION = 27            # Key rotation broadcast (GAP-09)
+    COMMAND_NACK = 28            # Negative acknowledgement (GAP-11)
+    COMMAND_COMMIT = 29          # Exactly-once commit phase (GAP-11)
+    TRAINING_CONSENT_REQUEST = 30  # Training data consent request (GAP-10)
+    TRAINING_CONSENT_GRANT = 31    # Training data consent grant (GAP-10)
+    TRAINING_CONSENT_DENY = 32     # Training data consent deny (GAP-10)
+
+
+# ---------------------------------------------------------------------------
+# SenderType enum — GAP-08: Cloud Relay Identity
+# ---------------------------------------------------------------------------
+
+class SenderType(str, Enum):
+    """Identifies the category of the message sender.
+
+    Spec: §8.5 — Sender Type and Service Identity
+    """
+
+    robot = "robot"
+    human = "human"
+    cloud_function = "cloud_function"
+    system = "system"
+
+
+# ---------------------------------------------------------------------------
+# Version compatibility helper — GAP-12
+# ---------------------------------------------------------------------------
+
+def validate_version_compat(incoming_version: str) -> bool:
+    """Check if *incoming_version* is compatible with this receiver's version.
+
+    Rules (RCAN §3.5):
+    - Same MAJOR: accept if incoming MINOR ≤ receiver MINOR.
+    - Different MAJOR: raise :class:`VersionIncompatibleError`.
+    - Higher MINOR: log a warning (forward-compat; new fields are ignored).
+
+    Args:
+        incoming_version: Version string from an incoming message (e.g. "1.3").
+
+    Returns:
+        True if compatible.
+
+    Raises:
+        VersionIncompatibleError: If MAJOR version mismatch.
+    """
+    try:
+        parts = incoming_version.split(".")
+        incoming_major = int(parts[0])
+        incoming_minor = int(parts[1]) if len(parts) > 1 else 0
+    except (ValueError, IndexError) as exc:
+        raise VersionIncompatibleError(
+            f"Cannot parse incoming version: {incoming_version!r}"
+        ) from exc
+
+    try:
+        our_parts = SPEC_VERSION.split(".")
+        our_major = int(our_parts[0])
+        our_minor = int(our_parts[1]) if len(our_parts) > 1 else 0
+    except (ValueError, IndexError):
+        our_major, our_minor = 1, 5
+
+    if incoming_major != our_major:
+        raise VersionIncompatibleError(
+            f"MAJOR version mismatch: receiver={SPEC_VERSION!r}, "
+            f"sender={incoming_version!r}. Only same-MAJOR is compatible."
+        )
+
+    if incoming_minor > our_minor:
+        logger.warning(
+            "Incoming message version %s is newer than receiver version %s. "
+            "Unknown fields will be ignored (forward-compat mode).",
+            incoming_version,
+            SPEC_VERSION,
+        )
+
+    return True
+
+
+# ---------------------------------------------------------------------------
+# RCANMessage dataclass
+# ---------------------------------------------------------------------------
 
 @dataclass
 class RCANMessage:
@@ -51,28 +149,52 @@ class RCANMessage:
     An RCAN command message.
 
     Attributes:
-        cmd:        Command name (e.g. ``move_forward``, ``stop``, ``speak``).
-        target:     Destination robot URI.
-        params:     Command parameters (free-form dict).
-        confidence: AI inference confidence [0.0–1.0]. None if not AI-driven.
-        rcan:       RCAN spec version. Defaults to ``"1.2"``.
-        msg_id:     Unique message ID. Auto-generated if not provided.
-        timestamp:  Unix timestamp. Auto-set if not provided.
-        sender:     Sender identity (operator URI or name).
-        scope:      Authorization scope (e.g. ``"operator"``, ``"fleet"``).
-        signature:  Ed25519 signature dict (``alg``, ``kid``, ``value``).
+        cmd:            Command name (e.g. ``move_forward``, ``stop``, ``speak``).
+        target:         Destination robot URI.
+        params:         Command parameters (free-form dict).
+        confidence:     AI inference confidence [0.0–1.0]. None if not AI-driven.
+        rcan:           RCAN spec version. Defaults to current SPEC_VERSION.
+        msg_id:         Unique message ID. Auto-generated if not provided.
+        timestamp:      Unix timestamp. Auto-set if not provided.
+        sender:         Sender identity (operator URI or name).
+        scope:          Authorization scope (e.g. ``"operator"``, ``"fleet"``).
+        signature:      Ed25519 signature dict (``alg``, ``kid``, ``value``).
+        rcan_version:   Explicit spec version (mirrors ``rcan`` for v1.5 compat).
+        sender_type:    Category of sender (GAP-08: cloud relay identity).
+        cloud_provider: Cloud provider name when sender_type==cloud_function.
+        key_id:         Key identifier for the signing key (GAP-09).
+        qos:            Quality of service level (GAP-11). 0=fire-and-forget.
+        sequence_number: Message sequence number for QoS ordering (GAP-11).
+        delegation_chain: Chain of delegation hops (GAP-01).
+        group_id:       Fleet group identifier (GAP-13).
+        read_only:      Observer-mode flag — sender requests read-only stream (GAP-15).
+        presence_verified: Physical presence has been verified (GAP-19).
+        proximity_m:    Physical proximity in metres (GAP-19).
     """
 
     cmd: str
     target: RobotURI | str
     params: dict[str, Any] = field(default_factory=dict)
     confidence: float | None = None
-    rcan: str = SPEC_VERSION
+    rcan: str = field(default_factory=lambda: SPEC_VERSION)
     msg_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     sender: str | None = None
     scope: str | None = None
     signature: dict[str, str] | None = None
+
+    # v1.5 additions
+    rcan_version: str = field(default_factory=lambda: SPEC_VERSION)
+    sender_type: Optional[SenderType] = None
+    cloud_provider: Optional[str] = None
+    key_id: Optional[str] = None
+    qos: int = 0
+    sequence_number: Optional[int] = None
+    delegation_chain: list = field(default_factory=list)  # list[DelegationHop]
+    group_id: Optional[str] = None
+    read_only: bool = False
+    presence_verified: bool = False
+    proximity_m: Optional[float] = None
 
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
@@ -85,6 +207,16 @@ class RCANMessage:
             )
         if not self.cmd:
             raise RCANValidationError("cmd must not be empty")
+        # Sync rcan and rcan_version (both carry the spec version)
+        if self.rcan_version == SPEC_VERSION and self.rcan != SPEC_VERSION:
+            self.rcan_version = self.rcan
+        elif self.rcan == SPEC_VERSION and self.rcan_version != SPEC_VERSION:
+            self.rcan = self.rcan_version
+        # GAP-08 validation: cloud_function senders must declare cloud_provider
+        if self.sender_type == SenderType.cloud_function and not self.cloud_provider:
+            raise RCANValidationError(
+                "cloud_provider is required when sender_type == 'cloud_function'"
+            )
 
     # ------------------------------------------------------------------
     # Serialization
@@ -94,6 +226,7 @@ class RCANMessage:
         """Return a JSON-serializable dict representation."""
         d: dict[str, Any] = {
             "rcan": self.rcan,
+            "rcan_version": self.rcan_version,
             "msg_id": self.msg_id,
             "timestamp": self.timestamp,
             "cmd": self.cmd,
@@ -108,6 +241,30 @@ class RCANMessage:
             d["scope"] = self.scope
         if self.signature is not None:
             d["sig"] = self.signature
+        # v1.5 optional fields
+        if self.sender_type is not None:
+            d["sender_type"] = self.sender_type.value
+        if self.cloud_provider is not None:
+            d["cloud_provider"] = self.cloud_provider
+        if self.key_id is not None:
+            d["key_id"] = self.key_id
+        if self.qos != 0:
+            d["qos"] = self.qos
+        if self.sequence_number is not None:
+            d["sequence_number"] = self.sequence_number
+        if self.delegation_chain:
+            d["delegation_chain"] = [
+                hop.to_dict() if hasattr(hop, "to_dict") else hop
+                for hop in self.delegation_chain
+            ]
+        if self.group_id is not None:
+            d["group_id"] = self.group_id
+        if self.read_only:
+            d["read_only"] = self.read_only
+        if self.presence_verified:
+            d["presence_verified"] = self.presence_verified
+        if self.proximity_m is not None:
+            d["proximity_m"] = self.proximity_m
         return d
 
     def to_json(self, indent: int | None = None) -> str:
@@ -119,14 +276,36 @@ class RCANMessage:
         """
         Deserialize a dict into an :class:`RCANMessage`.
 
+        v1.5: validates rcan_version compatibility first (GAP-12).
+
         Raises:
+            VersionIncompatibleError: If incoming MAJOR version differs.
             RCANValidationError: If required fields are missing.
         """
+        # GAP-12: version compatibility check is the FIRST validation
+        incoming_version = data.get("rcan_version") or data.get("rcan")
+        if incoming_version and str(incoming_version) != SPEC_VERSION:
+            try:
+                validate_version_compat(str(incoming_version))
+            except VersionIncompatibleError:
+                raise
+
         missing = _REQUIRED_CMD_FIELDS - data.keys()
         if missing:
             raise RCANValidationError(f"Missing required RCAN fields: {missing}")
+
+        # Parse sender_type
+        sender_type = None
+        st_raw = data.get("sender_type")
+        if st_raw is not None:
+            try:
+                sender_type = SenderType(st_raw)
+            except ValueError:
+                pass  # unknown sender_type — ignore (forward compat)
+
         return cls(
             rcan=data.get("rcan", SPEC_VERSION),
+            rcan_version=data.get("rcan_version", data.get("rcan", SPEC_VERSION)),
             msg_id=data.get("msg_id", str(uuid.uuid4())),
             timestamp=data.get("timestamp", time.time()),
             cmd=data["cmd"],
@@ -136,6 +315,16 @@ class RCANMessage:
             sender=data.get("sender"),
             scope=data.get("scope"),
             signature=data.get("sig"),
+            sender_type=sender_type,
+            cloud_provider=data.get("cloud_provider"),
+            key_id=data.get("key_id"),
+            qos=data.get("qos", 0),
+            sequence_number=data.get("sequence_number"),
+            delegation_chain=data.get("delegation_chain", []),
+            group_id=data.get("group_id"),
+            read_only=data.get("read_only", False),
+            presence_verified=data.get("presence_verified", False),
+            proximity_m=data.get("proximity_m"),
         )
 
     @classmethod
@@ -167,6 +356,40 @@ class RCANMessage:
             f"confidence={self.confidence})"
         )
 
+
+# ---------------------------------------------------------------------------
+# GAP-08: Cloud Relay Identity helper
+# ---------------------------------------------------------------------------
+
+def make_cloud_relay_message(base: RCANMessage, provider: str) -> RCANMessage:
+    """Stamp a message as originating from a cloud function.
+
+    Creates a shallow copy of *base* with ``sender_type=cloud_function`` and
+    the given *provider* name. The commitment record will reflect the cloud
+    origin for audit trail integrity.
+
+    Args:
+        base:     Original :class:`RCANMessage`.
+        provider: Cloud provider identifier (e.g. ``"google-cloud-functions"``).
+
+    Returns:
+        A new :class:`RCANMessage` with cloud relay fields set.
+
+    Raises:
+        RCANValidationError: If *provider* is empty.
+    """
+    if not provider:
+        raise RCANValidationError("provider must not be empty for cloud relay messages")
+
+    d = base.to_dict()
+    d["sender_type"] = SenderType.cloud_function.value
+    d["cloud_provider"] = provider
+    return RCANMessage.from_dict(d)
+
+
+# ---------------------------------------------------------------------------
+# RCANResponse
+# ---------------------------------------------------------------------------
 
 @dataclass
 class RCANResponse:

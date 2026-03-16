@@ -301,7 +301,7 @@ def validate_message(data: dict | str) -> ValidationResult:
     return result
 
 
-_CURRENT_SPEC_VERSION = "1.2"
+from rcan.version import SPEC_VERSION as _CURRENT_SPEC_VERSION  # type: ignore[assignment]
 
 
 def validate_config(
