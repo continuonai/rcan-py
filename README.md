@@ -150,7 +150,7 @@ Covered sections: §1 Robot URI · §2 RBAC · §3 Message Format · §5 Authent
 | **rcan-py** (this) | v0.6.0 | Python SDK |
 | [rcan-ts](https://github.com/continuonai/rcan-ts) | v0.6.0 | TypeScript SDK |
 | [rcan-spec](https://github.com/continuonai/rcan-spec) | v1.6.0 | Protocol spec |
-| [OpenCastor](https://github.com/craigm26/OpenCastor) | v2026.4.1.0 | Robot runtime (reference impl) |
+| [OpenCastor](https://github.com/craigm26/OpenCastor) | v2026.3.17.1 | Robot runtime (reference impl) |
 | [RRF](https://robotregistryfoundation.org) | v1.6.0 | Robot identity registry |
 | [Fleet UI](https://app.opencastor.com) | live | Web fleet dashboard |
 
