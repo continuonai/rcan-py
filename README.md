@@ -4,9 +4,18 @@ Official Python SDK for the [RCAN Robot Communication Protocol](https://rcan.dev
 
 RCAN (Robot Communication and Addressing Network) is an open protocol for robot networking built from safety requirements outward. It provides globally unique robot addressing, authenticated command chains, forensic audit trails, and safety gates.
 
-[![Spec](https://img.shields.io/badge/RCAN-v1.5-blue)](https://rcan.dev/spec)
+[![Spec](https://img.shields.io/badge/RCAN-v1.6-blue)](https://rcan.dev/spec)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/rcan)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## What's New in v0.6.0 (RCAN v1.6)
+
+| Module | Gap | Description |
+|---|---|---|
+| `rcan.federation` | GAP-16 | Federated Consent — cross-registry trust, DNS discovery, JWT validation |
+| `rcan.transport` | GAP-17 | Bandwidth-Constrained Transports — compact (msgpack/JSON), 32-byte ESTOP minimal, BLE framing |
+| `rcan.multimodal` | GAP-18 | Multi-Modal Payloads — inline/ref media chunks, training data, streaming |
+| `rcan.identity` | GAP-14 | Human Identity Verification — Level of Assurance, LoA policies, JWT parsing |
 
 ## Install
 

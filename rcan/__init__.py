@@ -47,6 +47,9 @@ from rcan.exceptions import (
     ConfigHashMismatchError,
     RevocationError,
     ConsentError,
+    # v1.6 exceptions
+    FederationError,
+    IdentityError,
 )
 from rcan.gates import ConfidenceGate, HiTLGate, GateResult
 from rcan.message import (
@@ -112,8 +115,61 @@ from rcan.offline import OfflineModeManager, OfflineStatus
 # v1.5 modules — Fault Reporting (GAP-20)
 from rcan.fault import FaultCode, FaultReport, make_fault_report
 
-__version__ = "0.5.0"
-__spec_version__ = "1.5"
+# v1.6 modules — Federated Consent (GAP-16)
+from rcan import federation
+from rcan.federation import (
+    RegistryTier,
+    FederationSyncType,
+    RegistryIdentity,
+    FederationSyncPayload,
+    TrustAnchorCache,
+    make_federation_sync,
+    validate_cross_registry_command,
+)
+
+# v1.6 modules — Constrained Transports (GAP-17)
+from rcan import transport
+from rcan.transport import (
+    TransportEncoding,
+    TransportNegotiation,
+    TransportError,
+    encode_compact,
+    decode_compact,
+    encode_minimal,
+    decode_minimal,
+    encode_ble_frame,
+    decode_ble_frames,
+    select_transport,
+)
+
+# v1.6 modules — Multi-Modal Payloads (GAP-18)
+from rcan import multimodal
+from rcan.multimodal import (
+    MediaEncoding,
+    MediaChunk,
+    StreamChunk,
+    MediaSizeError,
+    add_media_inline,
+    add_media_ref,
+    validate_media_chunks,
+    make_training_data_message,
+    make_stream_chunk,
+)
+
+# v1.6 modules — Human Identity Verification (GAP-14)
+from rcan import identity
+from rcan.identity import (
+    LevelOfAssurance,
+    IdentityRecord,
+    LoaPolicy,
+    DEFAULT_LOA_POLICY,
+    PRODUCTION_LOA_POLICY,
+    extract_loa_from_jwt,
+    validate_loa_for_scope,
+)
+
+__version__ = "0.6.0"
+__spec_version__ = "1.6"
 
 __all__ = [
     # Address
@@ -212,6 +268,50 @@ __all__ = [
     "FaultCode",
     "FaultReport",
     "make_fault_report",
+    # v1.6 — Federated Consent (GAP-16)
+    "federation",
+    "RegistryTier",
+    "FederationSyncType",
+    "RegistryIdentity",
+    "FederationSyncPayload",
+    "TrustAnchorCache",
+    "make_federation_sync",
+    "validate_cross_registry_command",
+    # v1.6 — Constrained Transports (GAP-17)
+    "transport",
+    "TransportEncoding",
+    "TransportNegotiation",
+    "TransportError",
+    "encode_compact",
+    "decode_compact",
+    "encode_minimal",
+    "decode_minimal",
+    "encode_ble_frame",
+    "decode_ble_frames",
+    "select_transport",
+    # v1.6 — Multi-Modal Payloads (GAP-18)
+    "multimodal",
+    "MediaEncoding",
+    "MediaChunk",
+    "StreamChunk",
+    "MediaSizeError",
+    "add_media_inline",
+    "add_media_ref",
+    "validate_media_chunks",
+    "make_training_data_message",
+    "make_stream_chunk",
+    # v1.6 — Human Identity Verification (GAP-14)
+    "identity",
+    "LevelOfAssurance",
+    "IdentityRecord",
+    "LoaPolicy",
+    "DEFAULT_LOA_POLICY",
+    "PRODUCTION_LOA_POLICY",
+    "extract_loa_from_jwt",
+    "validate_loa_for_scope",
+    # v1.6 exceptions
+    "FederationError",
+    "IdentityError",
     # Sub-modules (imported explicitly)
     # rcan.registry — RegistryClient (requires rcan[http])
     # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])

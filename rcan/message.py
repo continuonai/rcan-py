@@ -68,6 +68,11 @@ class MessageType(IntEnum):
     TRAINING_CONSENT_GRANT = 31    # Training data consent grant (GAP-10)
     TRAINING_CONSENT_DENY = 32     # Training data consent deny (GAP-10)
 
+    # v1.6 additions
+    FEDERATION_SYNC = 33           # Cross-registry federation sync (GAP-16)
+    TRAINING_DATA = 34             # Multi-modal training data payload (GAP-18)
+    STREAM_CHUNK = 35              # Incremental media stream chunk (GAP-18)
+
 
 # ---------------------------------------------------------------------------
 # SenderType enum — GAP-08: Cloud Relay Identity
@@ -170,6 +175,9 @@ class RCANMessage:
         read_only:      Observer-mode flag — sender requests read-only stream (GAP-15).
         presence_verified: Physical presence has been verified (GAP-19).
         proximity_m:    Physical proximity in metres (GAP-19).
+        media_chunks:   List of MediaChunk objects attached to this message (GAP-18).
+        loa:            Level of Assurance integer for the sender (GAP-14).
+        transport_encoding: Transport encoding hint for constrained channels (GAP-17).
     """
 
     cmd: str
@@ -195,6 +203,11 @@ class RCANMessage:
     read_only: bool = False
     presence_verified: bool = False
     proximity_m: Optional[float] = None
+
+    # v1.6 additions
+    media_chunks: list = field(default_factory=list)   # list[MediaChunk] (GAP-18)
+    loa: Optional[int] = None                          # Level of Assurance (GAP-14)
+    transport_encoding: Optional[str] = None           # Transport encoding hint (GAP-17)
 
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
@@ -265,6 +278,16 @@ class RCANMessage:
             d["presence_verified"] = self.presence_verified
         if self.proximity_m is not None:
             d["proximity_m"] = self.proximity_m
+        # v1.6 optional fields
+        if self.media_chunks:
+            d["media_chunks"] = [
+                chunk.to_dict() if hasattr(chunk, "to_dict") else chunk
+                for chunk in self.media_chunks
+            ]
+        if self.loa is not None:
+            d["loa"] = self.loa
+        if self.transport_encoding is not None:
+            d["transport_encoding"] = self.transport_encoding
         return d
 
     def to_json(self, indent: int | None = None) -> str:
@@ -325,6 +348,10 @@ class RCANMessage:
             read_only=data.get("read_only", False),
             presence_verified=data.get("presence_verified", False),
             proximity_m=data.get("proximity_m"),
+            # v1.6
+            media_chunks=data.get("media_chunks", []),
+            loa=data.get("loa"),
+            transport_encoding=data.get("transport_encoding"),
         )
 
     @classmethod

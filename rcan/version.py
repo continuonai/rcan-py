@@ -12,11 +12,15 @@ from __future__ import annotations
 # RCAN specification version this SDK implements.
 # Follows MAJOR.MINOR semantic versioning.
 # Receivers MUST accept messages from same MAJOR, lower-or-equal MINOR.
-SPEC_VERSION: str = "1.5"
+SPEC_VERSION: str = "1.6"
 
-# Supported v1.5 feature flags (VERSION_NEGOTIATION protocol)
+# SDK version (Python package)
+SDK_VERSION: str = "0.6.0"
+
+# Supported v1.6 feature flags (VERSION_NEGOTIATION protocol)
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
     {
+        # v1.5 features
         "VERSION_NEGOTIATION",
         "REPLAY_PREVENTION",
         "CLOCK_SYNC",
@@ -34,7 +38,12 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "PHYSICAL_PRESENCE",
         "FAULT_REPORTING",
         "AUDIT_EXPORT",
+        # v1.6 features
+        "FEDERATED_CONSENT",
+        "CONSTRAINED_TRANSPORT",
+        "MULTIMODAL_PAYLOADS",
+        "IDENTITY_LOA",
     }
 )
 
-__all__ = ["SPEC_VERSION", "SUPPORTED_FEATURES"]
+__all__ = ["SPEC_VERSION", "SDK_VERSION", "SUPPORTED_FEATURES"]

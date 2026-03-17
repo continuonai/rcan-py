@@ -4,6 +4,30 @@ All notable changes to rcan-py are documented here.
 
 ---
 
+## [0.6.0] — 2026-03-16
+
+### Added — RCAN v1.6 support (4 gaps closed)
+
+#### Federation & Identity
+- **GAP-16** `rcan.federation`: `RegistryTier` enum (root/authoritative/community), `FederationSyncType` enum (consent/revocation/key), `RegistryIdentity` dataclass, `FederationSyncPayload` dataclass. `TrustAnchorCache` with 24-hour TTL — `lookup()`, `discover_via_dns()` (reads `_rcan-registry.<domain>` TXT), `verify_registry_jwt()` (issuer/expiry/Ed25519 check). `make_federation_sync()` builder. `validate_cross_registry_command()` — enforces LoA ≥ 2 and trust cache check; ESTOP always allowed (P66 invariant). New `MessageType.FEDERATION_SYNC = 33`.
+- **GAP-14** `rcan.identity`: `LevelOfAssurance` IntEnum (ANONYMOUS=1, EMAIL_VERIFIED=2, HARDWARE_TOKEN=3). `IdentityRecord` dataclass. `extract_loa_from_jwt()` — JWT payload parsing without verification, graceful fallback to ANONYMOUS. `validate_loa_for_scope()` — scope-based LoA gating with configurable `min_loa_overrides` and `LoaPolicy`. `DEFAULT_LOA_POLICY` (all LoA=1, backward compatible). `PRODUCTION_LOA_POLICY` (control≥2, safety≥3). New `loa: Optional[int]` field on `RCANMessage`.
+
+#### Constrained Transport
+- **GAP-17** `rcan.transport`: `TransportEncoding` enum (HTTP/COMPACT/MINIMAL/BLE). `encode_compact()` / `decode_compact()` — msgpack (if available) or compact JSON with abbreviated field names. `encode_minimal()` / `decode_minimal()` — 32-byte ESTOP-only binary format with from/to RRN hashes, HMAC-SHA256 truncated signature, XOR checksum. `encode_ble_frame()` / `decode_ble_frames()` — MTU-fragmented BLE frames with stream reassembly. `select_transport()` — safety messages prefer MINIMAL > COMPACT > BLE > HTTP. New `transport_encoding: Optional[str]` field on `RCANMessage`.
+
+#### Multi-Modal Payloads
+- **GAP-18** `rcan.multimodal`: `MediaEncoding` enum (BASE64/REF). `MediaChunk` dataclass. `add_media_inline()` — inline media with SHA-256 integrity, 64 KB size limit (`MediaSizeError`). `add_media_ref()` — external media reference. `validate_media_chunks()` — inline hash recomputation, ref hash format check. `make_training_data_message()` — TRAINING_DATA message with inline media. `StreamChunk` dataclass. `make_stream_chunk()` — incremental media stream helper. New `media_chunks: list` field on `RCANMessage`. New `MessageType.TRAINING_DATA = 34`, `MessageType.STREAM_CHUNK = 35`.
+
+### Changed
+- `rcan.version`: `SPEC_VERSION = "1.6"`, `SDK_VERSION = "0.6.0"`. Added v1.6 feature flags: `FEDERATED_CONSENT`, `CONSTRAINED_TRANSPORT`, `MULTIMODAL_PAYLOADS`, `IDENTITY_LOA`.
+- `rcan.message.RCANMessage`: added `media_chunks`, `loa`, `transport_encoding` fields. Updated `to_dict()`/`from_dict()` serialization.
+- `rcan.exceptions`: added `FederationError`, `IdentityError`.
+
+### Breaking Changes
+- None. All existing tests pass. New fields on `RCANMessage` are optional with safe defaults.
+
+---
+
 ## [0.5.0] — 2026-03-16
 
 ### Added — RCAN v1.5 support (18 gaps closed)

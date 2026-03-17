@@ -96,6 +96,19 @@ class ConsentError(RCANError):
     """Consent is missing, expired, or invalid."""
 
 
+# ---------------------------------------------------------------------------
+# v1.6 additions
+# ---------------------------------------------------------------------------
+
+
+class FederationError(RCANError):
+    """Federation trust check failed or registry is untrusted."""
+
+
+class IdentityError(RCANError):
+    """Identity verification failed or LoA requirement not met."""
+
+
 __all__ = [
     "RCANError",
     "RCANAddressError",
@@ -117,4 +130,7 @@ __all__ = [
     "ConfigHashMismatchError",
     "RevocationError",
     "ConsentError",
+    # v1.6
+    "FederationError",
+    "IdentityError",
 ]
