@@ -237,7 +237,7 @@ This release closes 18 security and protocol gaps identified in the v1.5 gap ana
 
 ## Spec Compliance
 
-This SDK implements [RCAN v1.5](https://rcan.dev/spec), including:
+This SDK implements [RCAN v1.6](https://rcan.dev/spec), including:
 - §2 Robot Addressing (Robot URI)
 - §3 Message format, serialization, and version compatibility (§3.5)
 - §5.3 Quality of Service levels
