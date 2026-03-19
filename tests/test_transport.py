@@ -23,6 +23,7 @@ from rcan.transport import (
 
 TARGET = "rcan://rcan.dev/acme/bot/v1/unit-001"
 ESTOP_TARGET = "rcan://rcan.dev/acme/bot/v1/unit-002"
+TEST_SECRET = b"test-secret-32-bytes-minimum!!"
 
 
 def make_msg(cmd: str = "move_forward", **kwargs) -> RCANMessage:
@@ -151,82 +152,82 @@ class TestCompactEncoding:
 
 
 class TestMinimalEncoding:
-    def test_encode_returns_32_bytes(self):
+    def test_encode_returns_40_bytes(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        assert len(data) == 32
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        assert len(data) == 40
 
-    def test_encode_exactly_32_bytes(self):
-        """Verify the byte count is exactly 32 every time."""
+    def test_encode_exactly_40_bytes(self):
+        """Verify the byte count is exactly 40 every time."""
         for cmd in ["ESTOP", "STOP", "RESUME"]:
             msg = RCANMessage(cmd=cmd, target=ESTOP_TARGET, sender="RRN-000000000001")
-            data = encode_minimal(msg)
-            assert len(data) == 32, f"Expected 32 bytes for {cmd}, got {len(data)}"
+            data = encode_minimal(msg, shared_secret=TEST_SECRET)
+            assert len(data) == 40, f"Expected 40 bytes for {cmd}, got {len(data)}"
 
     def test_rejects_non_safety_message(self):
         msg = make_msg(cmd="move_forward")
         with pytest.raises(TransportError, match="SAFETY"):
-            encode_minimal(msg)
+            encode_minimal(msg, shared_secret=TEST_SECRET)
 
     def test_decode_returns_dict(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert isinstance(result, dict)
 
     def test_decode_msg_type_is_6(self):
         """Minimal format always encodes SAFETY (type 6)."""
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert result["msg_type"] == 6
 
     def test_decode_is_safety_flag(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert result["is_safety"] is True
 
     def test_decode_checksum_ok(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert result["checksum_ok"] is True
 
     def test_decode_checksum_fails_on_corruption(self):
         msg = make_estop()
-        data = bytearray(encode_minimal(msg))
+        data = bytearray(encode_minimal(msg, shared_secret=TEST_SECRET))
         data[5] ^= 0xFF  # corrupt a byte
-        result = decode_minimal(bytes(data))
+        result = decode_minimal(bytes(data), shared_secret=TEST_SECRET)
         assert result["checksum_ok"] is False
 
     def test_decode_timestamp_close_to_original(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert abs(result["timestamp"] - int(msg.timestamp)) <= 1
 
     def test_decode_from_rrn_hash_hex_string(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert isinstance(result["from_rrn_hash"], str)
         assert len(result["from_rrn_hash"]) == 16  # 8 bytes = 16 hex chars
 
     def test_decode_to_rrn_hash_hex_string(self):
         msg = make_estop()
-        data = encode_minimal(msg)
-        result = decode_minimal(data)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
         assert isinstance(result["to_rrn_hash"], str)
         assert len(result["to_rrn_hash"]) == 16
 
     def test_decode_wrong_length_raises(self):
-        with pytest.raises(TransportError, match="32"):
-            decode_minimal(b"\x00" * 31)
+        with pytest.raises(TransportError, match="40"):
+            decode_minimal(b"\x00" * 39)
 
     def test_decode_too_long_raises(self):
         with pytest.raises(TransportError):
-            decode_minimal(b"\x00" * 33)
+            decode_minimal(b"\x00" * 41)
 
     def test_from_rrn_hash_reflects_sender(self):
         """Different senders should produce different from_rrn_hash values."""
@@ -237,24 +238,37 @@ class TestMinimalEncoding:
         msg2 = RCANMessage(
             cmd="ESTOP", target=ESTOP_TARGET, sender="RRN-000000000002"
         )
-        r1 = decode_minimal(encode_minimal(msg1))
-        r2 = decode_minimal(encode_minimal(msg2))
+        r1 = decode_minimal(encode_minimal(msg1, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET)
+        r2 = decode_minimal(encode_minimal(msg2, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET)
         assert r1["from_rrn_hash"] != r2["from_rrn_hash"]
 
     def test_layout_bytes_positions(self):
-        """Validate byte-level layout of the 32-byte frame."""
+        """Validate byte-level layout of the 40-byte frame."""
         msg = RCANMessage(
             cmd="ESTOP",
             target=ESTOP_TARGET,
             sender="RRN-TEST",
         )
-        data = encode_minimal(msg)
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
         # Bytes 0–1: msg_type little-endian = 6
         msg_type = struct.unpack_from("<H", data, 0)[0]
         assert msg_type == 6
         # Bytes 18–21: unix timestamp
         ts = struct.unpack_from("<I", data, 18)[0]
         assert abs(ts - int(msg.timestamp)) <= 1
+
+    def test_deprecation_warning_without_shared_secret(self):
+        """Calling encode_minimal without shared_secret emits DeprecationWarning."""
+        msg = make_estop()
+        with pytest.warns(DeprecationWarning, match="shared_secret"):
+            encode_minimal(msg)
+
+    def test_sig_truncated_is_16_bytes(self):
+        """Signature should be 16 bytes (32 hex chars) with shared_secret."""
+        msg = make_estop()
+        data = encode_minimal(msg, shared_secret=TEST_SECRET)
+        result = decode_minimal(data, shared_secret=TEST_SECRET)
+        assert len(result["sig_truncated"]) == 32  # 16 bytes = 32 hex chars
 
 
 # ---------------------------------------------------------------------------

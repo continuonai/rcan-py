@@ -243,24 +243,26 @@ def _is_safety_message(message: Any) -> bool:
     return cmd_upper in {"ESTOP", "E_STOP", "EMERGENCY_STOP", "STOP", "RESUME", "SAFETY"}
 
 
-def encode_minimal(message: Any) -> bytes:
-    """Encode a SAFETY (type 6) message to the 32-byte minimal binary format.
+def encode_minimal(message: Any, *, shared_secret: bytes | None = None) -> bytes:
+    """Encode a SAFETY (type 6) message to the 40-byte minimal binary format.
 
     Layout::
 
         [2B msg_type LE][8B from_rrn_hash][8B to_rrn_hash]
-        [4B unix_ts LE][8B sig_truncated][2B checksum LE]
+        [4B unix_ts LE][16B sig_truncated][2B checksum LE]
 
     - ``from_rrn_hash`` = first 8 bytes of SHA-256(sender)
     - ``to_rrn_hash``   = first 8 bytes of SHA-256(str(target))
-    - ``sig_truncated`` = first 8 bytes of HMAC-SHA256(key=msg_id, data=body)
-    - ``checksum``      = XOR of all previous 30 bytes, little-endian uint16
+    - ``sig_truncated`` = first 16 bytes of HMAC-SHA256(key=shared_secret, data=body)
+    - ``checksum``      = XOR of all previous 38 bytes, little-endian uint16
 
     Args:
         message: :class:`~rcan.message.RCANMessage` — MUST be a SAFETY message.
+        shared_secret: Pre-shared key for HMAC signing.  If *None*, falls back
+            to using ``msg_id`` (deprecated — will be removed in a future release).
 
     Returns:
-        Exactly 32 bytes.
+        Exactly 40 bytes.
 
     Raises:
         TransportError: If message is not a SAFETY type.
@@ -280,61 +282,74 @@ def encode_minimal(message: Any) -> bytes:
     from_hash = _rrn_hash(from_rrn)   # 8 bytes
     to_hash = _rrn_hash(to_rrn)       # 8 bytes
 
-    # HMAC-SHA256 over from_hash+to_hash+ts using msg_id as key
-    key_bytes = message.msg_id.encode("utf-8")
+    # HMAC-SHA256 over from_hash+to_hash+ts using shared_secret as key
+    if shared_secret is not None:
+        key_bytes = shared_secret
+    else:
+        import warnings
+        warnings.warn(
+            "encode_minimal: using msg_id as HMAC key is deprecated and insecure. "
+            "Pass shared_secret instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        key_bytes = message.msg_id.encode("utf-8")
     body = from_hash + to_hash + struct.pack("<I", ts_int)
     sig_full = hmac.new(key_bytes, body, hashlib.sha256).digest()
-    sig_truncated = sig_full[:8]  # 8 bytes
+    sig_truncated = sig_full[:16]  # 16 bytes
 
-    # Pack first 30 bytes
-    packed_30 = (
+    # Pack first 38 bytes
+    packed_38 = (
         struct.pack("<H", msg_type_int)  # 2B
         + from_hash                       # 8B
         + to_hash                         # 8B
         + struct.pack("<I", ts_int)       # 4B
-        + sig_truncated                   # 8B
+        + sig_truncated                   # 16B
     )
-    assert len(packed_30) == 30
+    assert len(packed_38) == 38
 
-    # Checksum: XOR of all 30 bytes → uint16 LE
+    # Checksum: XOR of all 38 bytes → uint16 LE
     xor_val = 0
-    for i in range(0, 30, 2):
-        word = struct.unpack_from("<H", packed_30, i)[0]
+    for i in range(0, 38, 2):
+        word = struct.unpack_from("<H", packed_38, i)[0]
         xor_val ^= word
     checksum = struct.pack("<H", xor_val)
 
-    result = packed_30 + checksum
-    assert len(result) == 32
+    result = packed_38 + checksum
+    assert len(result) == 40
     return result
 
 
-def decode_minimal(data: bytes) -> dict:
-    """Decode a 32-byte minimal ESTOP frame to a partial message dict.
+def decode_minimal(data: bytes, *, shared_secret: bytes | None = None) -> dict:
+    """Decode a 40-byte minimal ESTOP frame to a partial message dict.
 
     This does NOT return a full :class:`~rcan.message.RCANMessage` — it
     returns a minimal dict suitable for ESTOP dispatch only.
 
     Args:
-        data: Exactly 32 bytes from :func:`encode_minimal`.
+        data: Exactly 40 bytes from :func:`encode_minimal`.
+        shared_secret: Pre-shared key used when encoding.  Currently unused
+            during decode (signature is not re-verified here), but accepted
+            for API symmetry and future verification support.
 
     Returns:
         Dict with keys ``msg_type``, ``from_rrn_hash``, ``to_rrn_hash``,
         ``timestamp``, ``sig_truncated``, ``checksum_ok``.
 
     Raises:
-        TransportError: If data length is not 32 or checksum fails.
+        TransportError: If data length is not 40 or checksum fails.
     """
-    if len(data) != 32:
+    if len(data) != 40:
         raise TransportError(
-            f"decode_minimal expects exactly 32 bytes, got {len(data)}"
+            f"decode_minimal expects exactly 40 bytes, got {len(data)}"
         )
 
     # Verify checksum
     xor_val = 0
-    for i in range(0, 30, 2):
+    for i in range(0, 38, 2):
         word = struct.unpack_from("<H", data, i)[0]
         xor_val ^= word
-    stored_checksum = struct.unpack_from("<H", data, 30)[0]
+    stored_checksum = struct.unpack_from("<H", data, 38)[0]
     checksum_ok = (xor_val == stored_checksum)
     if not checksum_ok:
         log.warning("decode_minimal: checksum mismatch (computed=%04x, stored=%04x)", xor_val, stored_checksum)
@@ -343,7 +358,7 @@ def decode_minimal(data: bytes) -> dict:
     from_rrn_hash = data[2:10]
     to_rrn_hash = data[10:18]
     timestamp = struct.unpack_from("<I", data, 18)[0]
-    sig_truncated = data[22:30]
+    sig_truncated = data[22:38]
 
     return {
         "msg_type": msg_type,

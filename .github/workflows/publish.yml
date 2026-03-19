@@ -12,8 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2DCAA3f393817b4e60 # v5
         with:
           python-version: "3.12"
       - name: Install build
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4  # pinning deferred — no SHA provided
         with:
           name: dist
           path: dist/
