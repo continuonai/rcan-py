@@ -10,7 +10,7 @@
 - `rcan-validate` CLI — validate config files and live robot records against the canonical JSON schema
 - `RCANMessage`, `NodeClient`, message type constants
 
-**Version**: 0.4.0 | **Spec**: RCAN v1.4 | **Python**: 3.10+ | **Tests**: 250 passing
+**Version**: 0.6.0 | **Spec**: RCAN v1.6.1 | **Python**: 3.10+ | **Tests**: 589 passing
 
 ## Repository Layout
 
@@ -18,6 +18,7 @@
 rcan-py/
 ├── rcan/
 │   ├── __init__.py         # __version__, SPEC_VERSION, public exports
+│   ├── version.py          # SPEC_VERSION, SDK_VERSION — single source of truth (always sync with rcan-spec)
 │   ├── message.py          # RCANMessage dataclass, SPEC_VERSION, MessageType constants
 │   ├── uri.py              # RobotURI — parse/validate rcan:// URIs
 │   ├── registry.py         # RegistryClient — async HTTP client for rcan.dev API
@@ -29,7 +30,7 @@ rcan-py/
 │   ├── test_registry.py    # RegistryClient tests (mocked HTTP)
 │   ├── test_uri.py         # RobotURI parsing tests
 │   └── ...
-├── pyproject.toml          # version = "0.4.0"
+├── pyproject.toml          # version = "0.6.0"
 └── CHANGELOG.md
 ```
 
@@ -38,18 +39,18 @@ rcan-py/
 ```python
 import rcan
 
-rcan.__version__       # "0.4.0"
-rcan.SPEC_VERSION      # "1.4"  — tracks current stable spec version
-rcan.__spec_version__  # "1.4"  — alias
+rcan.__version__       # "0.6.0"
+rcan.SPEC_VERSION      # "1.6.1"  — tracks current stable spec version
+rcan.__spec_version__  # "1.6.1"  — alias
 ```
 
-Both `__init__.py` and `message.py` define `SPEC_VERSION`. **Keep them in sync.**
+SPEC_VERSION is defined in `rcan/version.py` — always keep in sync with `rcan-spec` `package.json` version field. Both `__init__.py` and `message.py` re-export it.
 
 ## Running Tests
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -q              # 250 tests, should all pass
+pytest tests/ -q              # 589 tests, should all pass
 pytest tests/test_version.py  # Checks SPEC_VERSION assertions specifically
 ```
 
@@ -62,7 +63,7 @@ When the RCAN spec releases a new stable version:
 4. Update `rcan/__init__.py`: `__version__`
 5. Update `tests/test_version.py`: assertions for new version strings
 6. Update `CHANGELOG.md`: add new entry at top
-7. Run `pytest tests/ -q` to confirm 250 passing
+7. Run `pytest tests/ -q` to confirm all passing
 8. Commit and push
 
 ## RegistryClient
@@ -107,3 +108,7 @@ OpenCastor's `castor/rcan/sdk_compat.py` handles this compatibility layer.
 - Async-first for IO operations; sync wrappers (`_run_sync()`) for convenience
 - Exceptions: raise from `rcan.exceptions` hierarchy, not raw `Exception`
 - No dependencies beyond stdlib + `httpx` (optional) — keep it lightweight
+
+## Security Notes
+
+- **encode_minimal()** now accepts `shared_secret` parameter; using `msg_id` as HMAC key is deprecated (2026-03-19)
