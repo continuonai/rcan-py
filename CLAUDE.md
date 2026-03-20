@@ -113,8 +113,10 @@ OpenCastor's `castor/rcan/sdk_compat.py` handles this compatibility layer.
 
 - **encode_minimal()** now accepts `shared_secret` parameter; using `msg_id` as HMAC key is deprecated (2026-03-19)
 
-## v1.7 Additions (2026-03-20)
+## v1.7–v1.8 Additions (2026-03-20)
 
-- **MessageType**: `CONTRIBUTE_REQUEST` (33), `CONTRIBUTE_RESULT` (34), `CONTRIBUTE_CANCEL` (35)
+- **v1.8 Canonical MessageType table**: 36 types with fixed integers — verified by `tests/test_canonical_types.py`
+- **MessageType**: `CONTRIBUTE_REQUEST` (33), `CONTRIBUTE_RESULT` (34), `CONTRIBUTE_CANCEL` (35), `TRAINING_DATA` (36)
 - **Scope validation**: `contribute` scope mapped to chat-level LoA in `identity._SCOPE_FIELD_MAP`
 - **Transport**: `encode_compact()` / `decode_compact()` for RCAN-over-MQTT; `encode_minimal()` for ESTOP frames
+- **Compatibility**: OpenCastor ≥2026.3.20.2
