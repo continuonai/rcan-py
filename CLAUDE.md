@@ -10,7 +10,7 @@
 - `rcan-validate` CLI — validate config files and live robot records against the canonical JSON schema
 - `RCANMessage`, `NodeClient`, message type constants
 
-**Version**: 0.6.0 | **Spec**: RCAN v1.6.1 | **Python**: 3.10+ | **Tests**: 605 passing
+**Version**: 0.6.0 | **Spec**: RCAN v1.8.0 | **Python**: 3.10+ | **Tests**: 609 passing
 
 ## Repository Layout
 
