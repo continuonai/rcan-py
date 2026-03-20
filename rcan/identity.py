@@ -182,6 +182,7 @@ _SCOPE_FIELD_MAP: dict[str, str] = {
     "fleet": "min_loa_for_control",
     "observer": "min_loa_for_status",
     "training_data": "min_loa_for_control",
+    "contribute": "min_loa_for_chat",  # v1.7: between chat and control
 }
 
 

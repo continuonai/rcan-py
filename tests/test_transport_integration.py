@@ -147,3 +147,20 @@ class TestBLEFrames:
         frames = encode_ble_frame(msg, mtu=244)
         recovered = decode_ble_frames(frames)
         assert recovered.cmd == msg.cmd
+
+
+# ── Contribute message types (v1.7) ──────────────────────────────────────
+
+
+class TestContributeMessages:
+    def test_contribute_message_types_exist(self):
+        from rcan.message import MessageType
+
+        assert MessageType.CONTRIBUTE_REQUEST == 33
+        assert MessageType.CONTRIBUTE_RESULT == 34
+        assert MessageType.CONTRIBUTE_CANCEL == 35
+
+    def test_contribute_scope_in_field_map(self):
+        from rcan.identity import _SCOPE_FIELD_MAP
+
+        assert "contribute" in _SCOPE_FIELD_MAP

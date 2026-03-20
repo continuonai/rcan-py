@@ -68,6 +68,11 @@ class MessageType(IntEnum):
     TRAINING_CONSENT_GRANT = 31    # Training data consent grant (GAP-10)
     TRAINING_CONSENT_DENY = 32     # Training data consent deny (GAP-10)
 
+    # v1.7 additions — Idle compute contribution
+    CONTRIBUTE_REQUEST = 33        # Coordinator → robot: deliver work unit
+    CONTRIBUTE_RESULT = 34         # Robot → coordinator: return results
+    CONTRIBUTE_CANCEL = 35         # Robot → coordinator: cancellation notice
+
     # v1.6 additions
     FEDERATION_SYNC = 33           # Cross-registry federation sync (GAP-16)
     TRAINING_DATA = 34             # Multi-modal training data payload (GAP-18)
