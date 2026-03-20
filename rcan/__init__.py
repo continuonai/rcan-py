@@ -74,7 +74,11 @@ from rcan.clock import ClockSyncStatus, check_clock_sync, assert_clock_synced
 from rcan.qos import QoSLevel, QoSManager, make_estop_with_qos
 
 # v1.5 modules — Config Update (GAP-07)
-from rcan.config_update import ConfigUpdateMessage, make_config_update, validate_config_update
+from rcan.config_update import (
+    ConfigUpdateMessage,
+    make_config_update,
+    validate_config_update,
+)
 
 # v1.5 modules — Key Rotation (GAP-09)
 from rcan.keys import KeyRotationMessage, KeyStore, make_key_rotation_message
@@ -91,7 +95,12 @@ from rcan.consent import (
 )
 
 # v1.5 modules — Robot Identity Revocation (GAP-02)
-from rcan.revocation import RevocationStatus, RevocationCache, check_revocation, make_revocation_broadcast
+from rcan.revocation import (
+    RevocationStatus,
+    RevocationCache,
+    check_revocation,
+    make_revocation_broadcast,
+)
 
 # v1.5 modules — Training Data Consent (GAP-10)
 from rcan.training_consent import (
@@ -168,8 +177,8 @@ from rcan.identity import (
     validate_loa_for_scope,
 )
 
-__version__ = "0.6.0"
-__spec_version__ = "1.6"
+__version__ = "0.7.0"
+__spec_version__ = "1.8.0"
 
 __all__ = [
     # Address

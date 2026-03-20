@@ -118,7 +118,7 @@ class TestMessageTypeAdditions:
     def test_command_nack_in_message_type(self):
         from rcan.message import MessageType
         assert hasattr(MessageType, "COMMAND_NACK")
-        assert MessageType.COMMAND_NACK == 28
+        assert MessageType.COMMAND_NACK == 18
 
     def test_command_ack_in_message_type(self):
         from rcan.message import MessageType

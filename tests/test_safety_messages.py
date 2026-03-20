@@ -201,7 +201,7 @@ class TestMessageTypeEnum:
 
     def test_transparency_value(self):
         from rcan.message import MessageType
-        assert MessageType.TRANSPARENCY == 18
+        assert MessageType.TRANSPARENCY == 16
 
     def test_safety_value(self):
         from rcan.message import MessageType

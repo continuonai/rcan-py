@@ -17,7 +17,7 @@ def test_version_flag_output():
     )  # argparse may write to stderr on some Pythons
     import rcan as _rcan_mod
     assert _rcan_mod.__version__ in output, f"Version not found in output: {output!r}"
-    assert "1.6" in output  # substring match — covers 1.6.1, f"Spec version not found in output: {output!r}"
+    assert "1.8" in output  # substring match — covers 1.6.1, f"Spec version not found in output: {output!r}"
     assert result.returncode == 0
 
 
@@ -40,4 +40,4 @@ def test_rcan_version_exports():
     assert hasattr(rcan, "SPEC_VERSION"), "rcan.SPEC_VERSION not exported"
     import re
     assert re.match(r'^\d+\.\d+', rcan.__version__), f"Invalid __version__: {rcan.__version__!r}"
-    assert rcan.SPEC_VERSION == "1.6.1"
+    assert rcan.SPEC_VERSION == "1.8.0"

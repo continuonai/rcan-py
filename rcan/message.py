@@ -29,14 +29,16 @@ _REQUIRED_CMD_FIELDS = {"rcan", "cmd", "target"}
 # MessageType enum — canonical v1.5 integer table
 # ---------------------------------------------------------------------------
 
-class MessageType(IntEnum):
-    """RCAN message type codes (v1.5 canonical table).
 
-    Integers 1–12 and 18 preserve existing assignments for backward
-    compatibility. New types are assigned from 17 and 19 onward per
-    the v1.5 canonicalization.
+class MessageType(IntEnum):
+    """RCAN v1.8 Canonical MessageType Table.
+
+    This is the SINGLE SOURCE OF TRUTH for message type integers.
+    Values MUST match rcan-spec §3 and rcan-ts exactly.
+    See: https://rcan.dev/spec/v1.8
     """
 
+    # Core protocol (1–8)
     COMMAND = 1
     RESPONSE = 2
     STATUS = 3
@@ -44,44 +46,63 @@ class MessageType(IntEnum):
     CONFIG = 5
     SAFETY = 6
     AUTH = 7
-    AUTHORIZE = 8
-    PENDING_AUTH = 9
-    INVOKE = 10
-    INVOKE_RESULT = 11
-    INVOKE_CANCEL = 12
-    TRANSPARENCY = 18  # EU AI Act Art. 13 — KEEP at 18 for backward compat
+    ERROR = 8
 
-    # v1.5 additions
-    COMMAND_ACK = 17             # Acknowledgement for QoS ≥ 1
-    ROBOT_REVOCATION = 19        # Broadcast: revoke robot identity (GAP-02)
-    CONSENT_REQUEST = 20         # Request cross-robot consent (GAP-05)
-    CONSENT_GRANT = 21           # Owner grants consent (GAP-05)
-    CONSENT_DENY = 22            # Owner denies consent (GAP-05)
-    FLEET_COMMAND = 23           # Broadcast command to robot group (GAP-13)
-    SUBSCRIBE = 24               # Subscribe to telemetry stream (GAP-15)
-    UNSUBSCRIBE = 25             # Cancel telemetry subscription (GAP-15)
-    FAULT_REPORT = 26            # Structured fault report (GAP-20)
-    KEY_ROTATION = 27            # Key rotation broadcast (GAP-09)
-    COMMAND_NACK = 28            # Negative acknowledgement (GAP-11)
-    COMMAND_COMMIT = 29          # Exactly-once commit phase (GAP-11)
-    TRAINING_CONSENT_REQUEST = 30  # Training data consent request (GAP-10)
-    TRAINING_CONSENT_GRANT = 31    # Training data consent grant (GAP-10)
-    TRAINING_CONSENT_DENY = 32     # Training data consent deny (GAP-10)
+    # Discovery & authorization (9–10)
+    DISCOVER = 9
+    PENDING_AUTH = 10
 
-    # v1.7 additions — Idle compute contribution
-    CONTRIBUTE_REQUEST = 33        # Coordinator → robot: deliver work unit
-    CONTRIBUTE_RESULT = 34         # Robot → coordinator: return results
-    CONTRIBUTE_CANCEL = 35         # Robot → coordinator: cancellation notice
+    # Skill invocation (11–13)
+    INVOKE = 11
+    INVOKE_RESULT = 12
+    INVOKE_CANCEL = 13
 
-    # v1.6 additions
-    FEDERATION_SYNC = 33           # Cross-registry federation sync (GAP-16)
-    TRAINING_DATA = 36             # Multi-modal training data payload (GAP-18) — moved from 34 to avoid CONTRIBUTE_RESULT collision
-    STREAM_CHUNK = 35              # Incremental media stream chunk (GAP-18)
+    # Registry (14–15)
+    REGISTRY_REGISTER = 14
+    REGISTRY_RESOLVE = 15
+
+    # Audit & transparency (16)
+    TRANSPARENCY = 16  # EU AI Act Art. 13 audit record
+
+    # Acknowledgement & QoS (17–18)
+    COMMAND_ACK = 17
+    COMMAND_NACK = 18
+
+    # Identity & consent (19–22)
+    ROBOT_REVOCATION = 19
+    CONSENT_REQUEST = 20
+    CONSENT_GRANT = 21
+    CONSENT_DENY = 22
+
+    # Fleet & telemetry (23–25)
+    FLEET_COMMAND = 23
+    SUBSCRIBE = 24
+    UNSUBSCRIBE = 25
+
+    # Diagnostics (26–28)
+    FAULT_REPORT = 26
+    KEY_ROTATION = 27
+    COMMAND_COMMIT = 28
+
+    # Sensor & training consent (29–32)
+    SENSOR_DATA = 29
+    TRAINING_CONSENT_REQUEST = 30
+    TRAINING_CONSENT_GRANT = 31
+    TRAINING_CONSENT_DENY = 32
+
+    # Idle compute contribution — v1.7 (33–35)
+    CONTRIBUTE_REQUEST = 33
+    CONTRIBUTE_RESULT = 34
+    CONTRIBUTE_CANCEL = 35
+
+    # Multimodal training data — v1.8 (36)
+    TRAINING_DATA = 36
 
 
 # ---------------------------------------------------------------------------
 # SenderType enum — GAP-08: Cloud Relay Identity
 # ---------------------------------------------------------------------------
+
 
 class SenderType(str, Enum):
     """Identifies the category of the message sender.
@@ -98,6 +119,7 @@ class SenderType(str, Enum):
 # ---------------------------------------------------------------------------
 # Version compatibility helper — GAP-12
 # ---------------------------------------------------------------------------
+
 
 def validate_version_compat(incoming_version: str) -> bool:
     """Check if *incoming_version* is compatible with this receiver's version.
@@ -152,6 +174,7 @@ def validate_version_compat(incoming_version: str) -> bool:
 # ---------------------------------------------------------------------------
 # RCANMessage dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RCANMessage:
@@ -210,9 +233,9 @@ class RCANMessage:
     proximity_m: Optional[float] = None
 
     # v1.6 additions
-    media_chunks: list = field(default_factory=list)   # list[MediaChunk] (GAP-18)
-    loa: Optional[int] = None                          # Level of Assurance (GAP-14)
-    transport_encoding: Optional[str] = None           # Transport encoding hint (GAP-17)
+    media_chunks: list = field(default_factory=list)  # list[MediaChunk] (GAP-18)
+    loa: Optional[int] = None  # Level of Assurance (GAP-14)
+    transport_encoding: Optional[str] = None  # Transport encoding hint (GAP-17)
 
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
@@ -393,6 +416,7 @@ class RCANMessage:
 # GAP-08: Cloud Relay Identity helper
 # ---------------------------------------------------------------------------
 
+
 def make_cloud_relay_message(base: RCANMessage, provider: str) -> RCANMessage:
     """Stamp a message as originating from a cloud function.
 
@@ -422,6 +446,7 @@ def make_cloud_relay_message(base: RCANMessage, provider: str) -> RCANMessage:
 # ---------------------------------------------------------------------------
 # RCANResponse
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RCANResponse:
