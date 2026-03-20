@@ -119,4 +119,4 @@ OpenCastor's `castor/rcan/sdk_compat.py` handles this compatibility layer.
 - **MessageType**: `CONTRIBUTE_REQUEST` (33), `CONTRIBUTE_RESULT` (34), `CONTRIBUTE_CANCEL` (35), `TRAINING_DATA` (36)
 - **Scope validation**: `contribute` scope mapped to chat-level LoA in `identity._SCOPE_FIELD_MAP`
 - **Transport**: `encode_compact()` / `decode_compact()` for RCAN-over-MQTT; `encode_minimal()` for ESTOP frames
-- **Compatibility**: OpenCastor ≥2026.3.20.2
+- **Compatibility**: OpenCastor ≥2026.3.20.3
