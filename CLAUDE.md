@@ -10,7 +10,7 @@
 - `rcan-validate` CLI — validate config files and live robot records against the canonical JSON schema
 - `RCANMessage`, `NodeClient`, message type constants
 
-**Version**: 0.6.0 | **Spec**: RCAN v1.6.1 | **Python**: 3.10+ | **Tests**: 589 passing
+**Version**: 0.6.0 | **Spec**: RCAN v1.6.1 | **Python**: 3.10+ | **Tests**: 605 passing
 
 ## Repository Layout
 
@@ -112,3 +112,9 @@ OpenCastor's `castor/rcan/sdk_compat.py` handles this compatibility layer.
 ## Security Notes
 
 - **encode_minimal()** now accepts `shared_secret` parameter; using `msg_id` as HMAC key is deprecated (2026-03-19)
+
+## v1.7 Additions (2026-03-20)
+
+- **MessageType**: `CONTRIBUTE_REQUEST` (33), `CONTRIBUTE_RESULT` (34), `CONTRIBUTE_CANCEL` (35)
+- **Scope validation**: `contribute` scope mapped to chat-level LoA in `identity._SCOPE_FIELD_MAP`
+- **Transport**: `encode_compact()` / `decode_compact()` for RCAN-over-MQTT; `encode_minimal()` for ESTOP frames
