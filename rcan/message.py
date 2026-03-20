@@ -75,7 +75,7 @@ class MessageType(IntEnum):
 
     # v1.6 additions
     FEDERATION_SYNC = 33           # Cross-registry federation sync (GAP-16)
-    TRAINING_DATA = 34             # Multi-modal training data payload (GAP-18)
+    TRAINING_DATA = 36             # Multi-modal training data payload (GAP-18) — moved from 34 to avoid CONTRIBUTE_RESULT collision
     STREAM_CHUNK = 35              # Incremental media stream chunk (GAP-18)
 
 
