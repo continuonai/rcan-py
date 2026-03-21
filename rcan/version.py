@@ -12,7 +12,7 @@ from __future__ import annotations
 # RCAN specification version this SDK implements.
 # Follows MAJOR.MINOR semantic versioning.
 # Receivers MUST accept messages from same MAJOR, lower-or-equal MINOR.
-SPEC_VERSION: str = "1.8.0"
+SPEC_VERSION: str = "1.9.0"
 
 # SDK version (Python package)
 SDK_VERSION: str = "0.7.0"

@@ -178,7 +178,7 @@ from rcan.identity import (
 )
 
 __version__ = "0.7.0"
-__spec_version__ = "1.8.0"
+__spec_version__ = "1.9.0"
 
 __all__ = [
     # Address
