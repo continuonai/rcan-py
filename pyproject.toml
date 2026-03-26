@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rcan"
-version = "1.1.0"
+version = "1.2.0"
 description = "Official Python SDK for the RCAN robot communication protocol"
 readme = "README.md"
 license = {text = "MIT"}
@@ -27,8 +27,9 @@ dependencies = []
 [project.optional-dependencies]
 http = ["httpx>=0.27"]
 crypto = ["cryptography>=42.0"]
-all = ["httpx>=0.27", "cryptography>=42.0"]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27", "cryptography>=42.0"]
+pq = ["dilithium-py>=1.0"]
+all = ["httpx>=0.27", "cryptography>=42.0", "dilithium-py>=1.0"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27", "cryptography>=42.0", "dilithium-py>=1.0"]
 
 [project.urls]
 Homepage = "https://rcan.dev"

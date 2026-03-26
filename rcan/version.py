@@ -10,12 +10,12 @@ Spec: https://rcan.dev/spec#section-3-5
 from __future__ import annotations
 
 # RCAN specification version this SDK implements.
-SPEC_VERSION: str = "2.1.0"
+SPEC_VERSION: str = "2.2.0"
 
 # SDK version (Python package)
-SDK_VERSION: str = "1.1.0"
+SDK_VERSION: str = "1.2.0"
 
-# v2.1 feature flags
+# v2.2 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
     {
         # v1.x carry-forward
@@ -47,6 +47,8 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "M2M_PEER",
         "M2M_TRUSTED",
         "AUTHORITY_ACCESS",
+        # v2.2 features
+        "PQ_HYBRID_SIGNING",   # ML-DSA-65 + Ed25519 hybrid (FIPS 204)
     }
 )
 

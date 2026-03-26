@@ -409,6 +409,6 @@ __all__ = [
     "IdentityError",
     # Sub-modules (imported explicitly)
     # rcan.registry — RegistryClient (requires rcan[http])
-    # rcan.signing  — KeyPair, sign_message, verify_message (requires rcan[crypto])
+    # rcan.signing  — KeyPair, MLDSAKeyPair, sign_message, verify_message (requires rcan[crypto]; dilithium-py for ML-DSA)
     # rcan.audit    — AuditChain
 ]
