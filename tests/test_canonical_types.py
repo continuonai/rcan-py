@@ -1,6 +1,6 @@
-"""Cross-SDK canonical MessageType verification (v1.8).
+"""Cross-SDK canonical MessageType verification (v1.10).
 
-This test ensures rcan-py MessageType values match the v1.8 canonical table
+This test ensures rcan-py MessageType values match the v1.10 canonical table
 exactly. Any drift from the spec will fail CI immediately.
 """
 
@@ -44,6 +44,11 @@ CANONICAL_TABLE = {
     "CONTRIBUTE_RESULT": 34,
     "CONTRIBUTE_CANCEL": 35,
     "TRAINING_DATA": 36,
+    # v1.10 — Competition protocol
+    "COMPETITION_ENTER": 37,
+    "COMPETITION_SCORE": 38,
+    "SEASON_STANDING": 39,
+    "PERSONAL_RESEARCH_RESULT": 40,
 }
 
 
@@ -75,7 +80,7 @@ def test_no_duplicate_values():
 
 
 def test_canonical_count():
-    """MessageType should have exactly 36 members (v1.8)."""
-    assert len(MessageType) == 36, (
-        f"Expected 36 MessageType members, got {len(MessageType)}"
+    """MessageType should have exactly 40 members (v1.10)."""
+    assert len(MessageType) == 40, (
+        f"Expected 40 MessageType members, got {len(MessageType)}"
     )

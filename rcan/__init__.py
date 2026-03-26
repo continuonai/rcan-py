@@ -165,6 +165,21 @@ from rcan.multimodal import (
     make_stream_chunk,
 )
 
+# v1.10 modules — Competition Protocol
+from rcan import competition
+from rcan.competition import (
+    COMPETITION_SCOPE_LEVEL,
+    CompetitionBadge,
+    CompetitionEnter,
+    CompetitionError,
+    CompetitionFormat,
+    CompetitionScore,
+    PersonalResearchResult,
+    RunType,
+    SeasonStanding,
+    validate_competition_scope,
+)
+
 # v1.6 modules — Human Identity Verification (GAP-14)
 from rcan import identity
 from rcan.identity import (
@@ -177,8 +192,8 @@ from rcan.identity import (
     validate_loa_for_scope,
 )
 
-__version__ = "0.7.0"
-__spec_version__ = "1.9.0"
+__version__ = "0.9.0"
+__spec_version__ = "1.10.0"
 
 __all__ = [
     # Address
@@ -318,6 +333,18 @@ __all__ = [
     "PRODUCTION_LOA_POLICY",
     "extract_loa_from_jwt",
     "validate_loa_for_scope",
+    # v1.10 — Competition Protocol
+    "competition",
+    "COMPETITION_SCOPE_LEVEL",
+    "CompetitionBadge",
+    "CompetitionEnter",
+    "CompetitionError",
+    "CompetitionFormat",
+    "CompetitionScore",
+    "PersonalResearchResult",
+    "RunType",
+    "SeasonStanding",
+    "validate_competition_scope",
     # v1.6 exceptions
     "FederationError",
     "IdentityError",

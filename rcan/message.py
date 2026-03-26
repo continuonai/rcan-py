@@ -31,11 +31,11 @@ _REQUIRED_CMD_FIELDS = {"rcan", "cmd", "target"}
 
 
 class MessageType(IntEnum):
-    """RCAN v1.8 Canonical MessageType Table.
+    """RCAN v1.10 Canonical MessageType Table.
 
     This is the SINGLE SOURCE OF TRUTH for message type integers.
     Values MUST match rcan-spec §3 and rcan-ts exactly.
-    See: https://rcan.dev/spec/v1.8
+    See: https://rcan.dev/spec/v1.10
     """
 
     # Core protocol (1–8)
@@ -97,6 +97,12 @@ class MessageType(IntEnum):
 
     # Multimodal training data — v1.8 (36)
     TRAINING_DATA = 36
+
+    # Competition protocol — v1.10 (37–40)
+    COMPETITION_ENTER          = 37
+    COMPETITION_SCORE          = 38
+    SEASON_STANDING            = 39
+    PERSONAL_RESEARCH_RESULT   = 40
 
 
 # ---------------------------------------------------------------------------
