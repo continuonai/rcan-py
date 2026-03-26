@@ -161,6 +161,6 @@ class TestContributeMessages:
         assert MessageType.CONTRIBUTE_CANCEL == 35
 
     def test_contribute_scope_in_field_map(self):
-        from rcan.identity import _SCOPE_FIELD_MAP
+        from rcan.identity import SCOPE_MIN_ROLE
 
-        assert "contribute" in _SCOPE_FIELD_MAP
+        assert "contribute" in SCOPE_MIN_ROLE

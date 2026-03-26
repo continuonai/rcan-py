@@ -104,6 +104,12 @@ class MessageType(IntEnum):
     SEASON_STANDING            = 39
     PERSONAL_RESEARCH_RESULT   = 40
 
+    # Authority & attestation — v2.1 (41–44)
+    AUTHORITY_ACCESS           = 41  # authority → robot: EU AI Act Art. 16(j) audit request
+    AUTHORITY_RESPONSE         = 42  # robot → authority: audit data response
+    FIRMWARE_ATTESTATION       = 43  # robot → RRF: publish signed firmware manifest
+    SBOM_UPDATE                = 44  # robot → RRF: publish updated CycloneDX SBOM
+
 
 # ---------------------------------------------------------------------------
 # SenderType enum — GAP-08: Cloud Relay Identity
@@ -243,6 +249,10 @@ class RCANMessage:
     loa: Optional[int] = None  # Level of Assurance (GAP-14)
     transport_encoding: Optional[str] = None  # Transport encoding hint (GAP-17)
 
+    # v2.1 additions — REQUIRED for all messages at L2+ conformance
+    firmware_hash: Optional[str] = None    # SHA-256 of sender's firmware manifest (field 13)
+    attestation_ref: Optional[str] = None  # URI to sender's SBOM endpoint (field 14)
+
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
         if isinstance(self.target, str):
@@ -263,6 +273,16 @@ class RCANMessage:
         if self.sender_type == SenderType.cloud_function and not self.cloud_provider:
             raise RCANValidationError(
                 "cloud_provider is required when sender_type == 'cloud_function'"
+            )
+        # v2.1: hard-remove signature:"pending" — rejected at parse time
+        if isinstance(self.signature, dict) and self.signature.get("value") == "pending":
+            raise RCANValidationError(
+                "signature:'pending' is not valid in RCAN v2.1. "
+                "Sign the message before sending or omit the signature field."
+            )
+        if isinstance(self.signature, str) and self.signature == "pending":
+            raise RCANValidationError(
+                "signature:'pending' is not valid in RCAN v2.1."
             )
 
     # ------------------------------------------------------------------
@@ -322,6 +342,11 @@ class RCANMessage:
             d["loa"] = self.loa
         if self.transport_encoding is not None:
             d["transport_encoding"] = self.transport_encoding
+        # v2.1 envelope fields
+        if self.firmware_hash is not None:
+            d["firmware_hash"] = self.firmware_hash
+        if self.attestation_ref is not None:
+            d["attestation_ref"] = self.attestation_ref
         return d
 
     def to_json(self, indent: int | None = None) -> str:
@@ -386,6 +411,9 @@ class RCANMessage:
             media_chunks=data.get("media_chunks", []),
             loa=data.get("loa"),
             transport_encoding=data.get("transport_encoding"),
+            # v2.1
+            firmware_hash=data.get("firmware_hash"),
+            attestation_ref=data.get("attestation_ref"),
         )
 
     @classmethod

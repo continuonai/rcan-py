@@ -10,18 +10,15 @@ Spec: https://rcan.dev/spec#section-3-5
 from __future__ import annotations
 
 # RCAN specification version this SDK implements.
-# Follows MAJOR.MINOR semantic versioning.
-# Receivers MUST accept messages from same MAJOR, lower-or-equal MINOR.
-SPEC_VERSION: str = "1.10.0"
+SPEC_VERSION: str = "2.1.0"
 
 # SDK version (Python package)
-SDK_VERSION: str = "0.9.0"
+SDK_VERSION: str = "1.1.0"
 
-# Supported v1.6 feature flags (VERSION_NEGOTIATION protocol)
+# v2.1 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
     {
-        # v1.5 features
-        "VERSION_NEGOTIATION",
+        # v1.x carry-forward
         "REPLAY_PREVENTION",
         "CLOCK_SYNC",
         "CLOUD_RELAY_IDENTITY",
@@ -38,13 +35,18 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "PHYSICAL_PRESENCE",
         "FAULT_REPORTING",
         "AUDIT_EXPORT",
-        # v1.6 features
         "FEDERATED_CONSENT",
         "CONSTRAINED_TRANSPORT",
         "MULTIMODAL_PAYLOADS",
         "IDENTITY_LOA",
-        # v1.10 features
         "COMPETITION_PROTOCOL",
+        # v2.1 features
+        "SIGNED_RURI",
+        "FIRMWARE_MANIFEST",
+        "SBOM_ATTESTATION",
+        "M2M_PEER",
+        "M2M_TRUSTED",
+        "AUTHORITY_ACCESS",
     }
 )
 

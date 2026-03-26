@@ -1,13 +1,23 @@
 """
-rcan.identity — Human Identity Verification and Level of Assurance (GAP-14).
+rcan.identity — RCAN v2.1 Role-Based Access Control and Identity.
 
-Provides LoA (Level of Assurance) definitions, JWT claim parsing, scope
-validation, and configurable LoA policies.
+Defines the seven-level role hierarchy (§2), JWT claim parsing, scope
+validation, and M2M authorization helpers.
 
-Default policy: all LoA = 1 (backward compatible with v1.5).
-Recommended production policy: control ≥ 2, safety ≥ 3.
+Roles (v2.1):
+    GUEST        (1) — read-only, anonymous
+    OPERATOR     (2) — operational control
+    CONTRIBUTOR  (3) — idle compute donation scope (maps to level 2.5 in JWT)
+    ADMIN        (4) — configuration, user management
+    M2M_PEER     (5) — robot-to-robot; issued by ADMIN
+    CREATOR      (6) — full hardware/software control
+    M2M_TRUSTED  (7) — fleet orchestration; RRF-issued only (JWT level 6)
 
-Spec: §14 — Human Identity Verification
+Note: JWT ``rcan_role`` level values are 1–6; Python enum values are 1–7
+(CONTRIBUTOR occupies position 3 internally, maps to JWT level 2.5 via
+the ``ROLE_TO_JWT_LEVEL`` table).
+
+Spec: §2 — Role-Based Access Control
 """
 
 from __future__ import annotations
@@ -15,7 +25,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Optional
 
@@ -23,105 +33,178 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Level of Assurance
+# Role enum  (v2.1)
 # ---------------------------------------------------------------------------
 
 
-class LevelOfAssurance(IntEnum):
-    """RCAN Level of Assurance (LoA) for human identity.
+class Role(IntEnum):
+    """RCAN v2.1 role hierarchy.
 
-    Levels:
-        ANONYMOUS (1):       No identity verification. Backward-compatible default.
-        EMAIL_VERIFIED (2):  Email address verified (e.g. magic link, OAuth).
-        HARDWARE_TOKEN (3):  Hardware security key (FIDO2/WebAuthn, YubiKey, etc.).
+    Integer values are internal ordering only. Use :data:`ROLE_TO_JWT_LEVEL`
+    and :func:`role_from_jwt_level` to map to/from JWT ``rcan_role`` level values.
+
+    Levels (JWT):
+        GUEST        → 1
+        OPERATOR     → 2
+        CONTRIBUTOR  → 2 (scoped subset; JWT claim uses fractional 2.5 string)
+        ADMIN        → 3
+        M2M_PEER     → 4
+        CREATOR      → 5
+        M2M_TRUSTED  → 6  (RRF-issued only)
     """
 
-    ANONYMOUS = 1
-    EMAIL_VERIFIED = 2
-    HARDWARE_TOKEN = 3
+    GUEST       = 1
+    OPERATOR    = 2
+    CONTRIBUTOR = 3   # JWT level 2.5 — scoped to fleet.contribute only
+    ADMIN       = 4   # JWT level 3
+    M2M_PEER    = 5   # JWT level 4 — authorized by ADMIN
+    CREATOR     = 6   # JWT level 5 — full hardware control
+    M2M_TRUSTED = 7   # JWT level 6 — RRF-issued, fleet orchestration
+
+
+# Map Role → JWT ``rcan_role`` level (float to accommodate 2.5)
+ROLE_TO_JWT_LEVEL: dict[Role, float] = {
+    Role.GUEST:       1.0,
+    Role.OPERATOR:    2.0,
+    Role.CONTRIBUTOR: 2.5,
+    Role.ADMIN:       3.0,
+    Role.M2M_PEER:    4.0,
+    Role.CREATOR:     5.0,
+    Role.M2M_TRUSTED: 6.0,
+}
+
+_JWT_LEVEL_TO_ROLE: dict[float, Role] = {v: k for k, v in ROLE_TO_JWT_LEVEL.items()}
+
+
+def role_from_jwt_level(level: float) -> Optional[Role]:
+    """Return the :class:`Role` for a JWT ``rcan_role`` numeric level."""
+    return _JWT_LEVEL_TO_ROLE.get(float(level))
 
 
 # ---------------------------------------------------------------------------
-# Dataclasses
+# Backward-compatible LoA alias
+# ---------------------------------------------------------------------------
+
+# v1.x code imported LevelOfAssurance. Keep a shim so existing callsites
+# continue to work during migration; remove in v3.0.
+LevelOfAssurance = Role  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
+# Scopes  (v2.1)
+# ---------------------------------------------------------------------------
+
+#: Minimum role required per scope.
+SCOPE_MIN_ROLE: dict[str, Role] = {
+    "status":        Role.GUEST,
+    "discover":      Role.GUEST,
+    "chat":          Role.GUEST,
+    "observer":      Role.GUEST,
+    "contribute":    Role.CONTRIBUTOR,
+    "control":       Role.OPERATOR,
+    "teleop":        Role.OPERATOR,
+    "training":      Role.ADMIN,
+    "training_data": Role.ADMIN,
+    "config":        Role.ADMIN,
+    "authority":     Role.ADMIN,
+    "admin":         Role.CREATOR,
+    "safety":        Role.CREATOR,
+    "estop":         Role.CREATOR,
+    "fleet.trusted": Role.M2M_TRUSTED,
+}
+
+
+# ---------------------------------------------------------------------------
+# Identity record
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class IdentityRecord:
-    """Verified identity record for a human principal.
+    """Verified identity record for a principal (human or machine).
 
     Attributes:
-        sub:                  Subject identifier (e.g. user UUID or email hash).
-        registry_url:         Registry that issued this identity.
-        loa:                  Level of assurance for this identity.
-        registry_tier:        Tier of the issuing registry (e.g. ``"authoritative"``).
-        fido2_credential_id:  FIDO2 credential ID (required for LoA 3).
-        verified_at:          ISO-8601 timestamp of the most recent verification.
+        sub:          Subject identifier (UUID, RRN, or orchestrator id).
+        role:         RCAN v2.1 :class:`Role`.
+        registry_url: Registry that issued this identity.
+        scopes:       Granted scopes from JWT.
+        verified_at:  ISO-8601 timestamp of most recent verification.
+        peer_rrn:     For M2M_PEER tokens — the authorized peer's RRN.
+        fleet_rrns:   For M2M_TRUSTED tokens — explicit fleet allowlist.
+        is_m2m:       True when the principal is a machine (M2M_PEER or M2M_TRUSTED).
     """
 
     sub: str
-    registry_url: str
-    loa: LevelOfAssurance
-    registry_tier: str
-    verified_at: str
-    fido2_credential_id: Optional[str] = None
+    role: Role
+    registry_url: str = ""
+    scopes: list[str] = field(default_factory=list)
+    verified_at: str = ""
+    peer_rrn: Optional[str] = None
+    fleet_rrns: list[str] = field(default_factory=list)
+
+    @property
+    def is_m2m(self) -> bool:
+        return self.role in (Role.M2M_PEER, Role.M2M_TRUSTED)
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
             "sub": self.sub,
+            "rcan_role": ROLE_TO_JWT_LEVEL[self.role],
             "registry_url": self.registry_url,
-            "loa": int(self.loa),
-            "registry_tier": self.registry_tier,
+            "scopes": self.scopes,
             "verified_at": self.verified_at,
         }
-        if self.fido2_credential_id is not None:
-            d["fido2_credential_id"] = self.fido2_credential_id
+        if self.peer_rrn:
+            d["peer_rrn"] = self.peer_rrn
+        if self.fleet_rrns:
+            d["fleet_rrns"] = self.fleet_rrns
         return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "IdentityRecord":
+        raw_level = float(data.get("rcan_role", 1.0))
+        role = role_from_jwt_level(raw_level) or Role.GUEST
         return cls(
-            sub=data["sub"],
-            registry_url=data["registry_url"],
-            loa=LevelOfAssurance(int(data.get("loa", 1))),
-            registry_tier=data.get("registry_tier", "community"),
+            sub=data.get("sub", ""),
+            role=role,
+            registry_url=data.get("registry_url", ""),
+            scopes=list(data.get("scopes", data.get("rcan_scopes", []))),
             verified_at=data.get("verified_at", ""),
-            fido2_credential_id=data.get("fido2_credential_id"),
+            peer_rrn=data.get("peer_rrn"),
+            fleet_rrns=list(data.get("fleet_rrns", [])),
         )
 
 
 # ---------------------------------------------------------------------------
-# LoA Policy
+# LoA Policy  (v2.1 — scope-based)
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class LoaPolicy:
-    """Minimum LoA requirements per RCAN command scope.
+    """Minimum :class:`Role` requirements per RCAN scope.
 
-    All fields default to 1 (ANONYMOUS) for backward compatibility.
-    The recommended production policy raises control to 2 and safety to 3.
-
-    Attributes:
-        min_loa_for_discover: Minimum LoA for scope ``"discover"``.
-        min_loa_for_status:   Minimum LoA for scope ``"status"``.
-        min_loa_for_chat:     Minimum LoA for scope ``"chat"``.
-        min_loa_for_control:  Minimum LoA for scope ``"control"`` / ``"teleop"``.
-        min_loa_for_safety:   Minimum LoA for scope ``"safety"`` / ESTOP commands.
+    Defaults to GUEST (1) everywhere for backward compatibility.
+    Production deployments should raise control to OPERATOR (2) and
+    safety/admin to CREATOR (6).
     """
 
-    min_loa_for_discover: int = 1
-    min_loa_for_status: int = 1
-    min_loa_for_chat: int = 1
-    min_loa_for_control: int = 1
-    min_loa_for_safety: int = 1
+    min_role_for_discover: Role = Role.GUEST
+    min_role_for_status:   Role = Role.GUEST
+    min_role_for_chat:     Role = Role.GUEST
+    min_role_for_control:  Role = Role.GUEST
+    min_role_for_safety:   Role = Role.GUEST
 
 
-# Default: all LoA = 1 (backward compatible)
-DEFAULT_LOA_POLICY: LoaPolicy = LoaPolicy(1, 1, 1, 1, 1)
+DEFAULT_LOA_POLICY: LoaPolicy = LoaPolicy()
 
-# Recommended production: control ≥ 2, safety ≥ 3
-PRODUCTION_LOA_POLICY: LoaPolicy = LoaPolicy(1, 1, 1, 2, 3)
+PRODUCTION_LOA_POLICY: LoaPolicy = LoaPolicy(
+    min_role_for_discover=Role.GUEST,
+    min_role_for_status=Role.GUEST,
+    min_role_for_chat=Role.GUEST,
+    min_role_for_control=Role.OPERATOR,
+    min_role_for_safety=Role.CREATOR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -129,121 +212,119 @@ PRODUCTION_LOA_POLICY: LoaPolicy = LoaPolicy(1, 1, 1, 2, 3)
 # ---------------------------------------------------------------------------
 
 
-def extract_loa_from_jwt(token: str) -> LevelOfAssurance:
-    """Parse an RCAN JWT (without signature verification) and read the ``loa`` claim.
+def extract_role_from_jwt(token: str) -> Role:
+    """Parse an RCAN v2.1 JWT and return the ``rcan_role`` claim as a :class:`Role`.
 
-    Args:
-        token: Raw JWT string (``header.payload.signature``).
-
-    Returns:
-        :class:`LevelOfAssurance` from the ``loa`` claim, or
-        ``LevelOfAssurance.ANONYMOUS`` if the claim is absent or the token
-        cannot be parsed.
+    Falls back to :attr:`Role.GUEST` when the claim is absent or the token
+    cannot be parsed.
     """
     try:
         parts = token.split(".")
         if len(parts) < 2:
-            log.debug("extract_loa_from_jwt: invalid JWT structure (< 2 parts)")
-            return LevelOfAssurance.ANONYMOUS
+            return Role.GUEST
 
         payload_b64 = parts[1]
-        # Restore base64 padding
         padding = 4 - len(payload_b64) % 4
         if padding != 4:
             payload_b64 += "=" * padding
 
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        raw_loa = payload.get("loa")
-        if raw_loa is None:
-            log.debug("extract_loa_from_jwt: no loa claim; defaulting to ANONYMOUS")
-            return LevelOfAssurance.ANONYMOUS
 
-        loa_int = int(raw_loa)
-        return LevelOfAssurance(loa_int)
+        # v2.1 JWT uses rcan_role (float level)
+        raw = payload.get("rcan_role")
+        if raw is not None:
+            role = role_from_jwt_level(float(raw))
+            if role is not None:
+                return role
+
+        # v1.x fallback: loa claim (integer)
+        loa = payload.get("loa")
+        if loa is not None:
+            role = role_from_jwt_level(float(int(loa)))
+            if role is not None:
+                return role
+
+        return Role.GUEST
     except Exception as exc:  # noqa: BLE001
-        log.debug("extract_loa_from_jwt: failed to extract loa (%s); defaulting to ANONYMOUS", exc)
-        return LevelOfAssurance.ANONYMOUS
+        log.debug("extract_role_from_jwt: failed (%s); defaulting to GUEST", exc)
+        return Role.GUEST
+
+
+# Backward-compat alias
+extract_loa_from_jwt = extract_role_from_jwt
+
+
+def extract_identity_from_jwt(token: str) -> IdentityRecord:
+    """Parse an RCAN v2.1 JWT and return an :class:`IdentityRecord`.
+
+    Does NOT verify the JWT signature. Use castor.auth or rcan.m2m for
+    verified parsing.
+    """
+    try:
+        parts = token.split(".")
+        payload_b64 = parts[1] if len(parts) >= 2 else ""
+        padding = 4 - len(payload_b64) % 4
+        if padding != 4:
+            payload_b64 += "=" * padding
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        return IdentityRecord.from_dict(payload)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("extract_identity_from_jwt: failed (%s)", exc)
+        return IdentityRecord(sub="", role=Role.GUEST)
 
 
 # ---------------------------------------------------------------------------
 # Scope validation
 # ---------------------------------------------------------------------------
 
-# Canonical scope-to-policy-field mapping
-_SCOPE_FIELD_MAP: dict[str, str] = {
-    "discover": "min_loa_for_discover",
-    "status": "min_loa_for_status",
-    "chat": "min_loa_for_chat",
-    "control": "min_loa_for_control",
-    "teleop": "min_loa_for_control",
-    "operator": "min_loa_for_control",
-    "safety": "min_loa_for_safety",
-    "estop": "min_loa_for_safety",
-    "fleet": "min_loa_for_control",
-    "observer": "min_loa_for_status",
-    "training_data": "min_loa_for_control",
-    "contribute": "min_loa_for_chat",  # v1.7: between chat and control
-}
+
+def validate_role_for_scope(
+    role: Role,
+    scope: str,
+    policy: Optional[LoaPolicy] = None,
+) -> tuple[bool, str]:
+    """Check whether *role* meets the minimum requirement for *scope*.
+
+    Returns:
+        ``(True, "")`` on success, ``(False, reason)`` on failure.
+    """
+    required = SCOPE_MIN_ROLE.get(scope.lower())
+    if required is None:
+        # Unknown scope — apply OPERATOR as a safe default
+        required = Role.OPERATOR
+        log.debug("validate_role_for_scope: unknown scope %r; applying OPERATOR minimum", scope)
+
+    if role >= required:
+        return True, ""
+    return False, (
+        f"Scope {scope!r} requires {required.name} (level {ROLE_TO_JWT_LEVEL[required]}), "
+        f"but caller has {role.name} (level {ROLE_TO_JWT_LEVEL[role]})"
+    )
 
 
+# Backward-compat alias
 def validate_loa_for_scope(
-    loa: LevelOfAssurance,
+    loa: Role,
     scope: str,
     min_loa_overrides: Optional[dict[str, int]] = None,
     policy: Optional[LoaPolicy] = None,
 ) -> tuple[bool, str]:
-    """Check whether *loa* meets the minimum requirement for *scope*.
-
-    Args:
-        loa:               Caller's :class:`LevelOfAssurance`.
-        scope:             RCAN scope string (e.g. ``"control"``, ``"safety"``).
-        min_loa_overrides: Optional per-scope override dict
-                           (e.g. ``{"control": 3, "safety": 3}``).
-        policy:            :class:`LoaPolicy` to use (defaults to
-                           :data:`DEFAULT_LOA_POLICY`).
-
-    Returns:
-        ``(True, "")`` if LoA meets requirement,
-        ``(False, reason)`` otherwise.
-    """
-    if policy is None:
-        policy = DEFAULT_LOA_POLICY
-
-    # Check override first
-    if min_loa_overrides and scope in min_loa_overrides:
-        required = min_loa_overrides[scope]
-    else:
-        # Look up in policy
-        scope_lower = scope.lower()
-        field_name = _SCOPE_FIELD_MAP.get(scope_lower)
-        if field_name is not None:
-            required = getattr(policy, field_name)
-        else:
-            # Unknown scope — apply control-level minimum as safe default
-            required = policy.min_loa_for_control
-            log.debug(
-                "validate_loa_for_scope: unknown scope %r; applying control-level minimum (%d)",
-                scope,
-                required,
-            )
-
-    loa_int = int(loa)
-    if loa_int >= required:
-        return True, ""
-    return False, (
-        f"Scope {scope!r} requires LoA ≥ {required} "
-        f"(LevelOfAssurance.{LevelOfAssurance(required).name}), "
-        f"but caller has LoA {loa_int} "
-        f"(LevelOfAssurance.{loa.name})"
-    )
+    return validate_role_for_scope(loa, scope, policy)
 
 
 __all__ = [
+    "Role",
     "LevelOfAssurance",
+    "ROLE_TO_JWT_LEVEL",
+    "role_from_jwt_level",
+    "SCOPE_MIN_ROLE",
     "IdentityRecord",
     "LoaPolicy",
     "DEFAULT_LOA_POLICY",
     "PRODUCTION_LOA_POLICY",
+    "extract_role_from_jwt",
     "extract_loa_from_jwt",
+    "extract_identity_from_jwt",
+    "validate_role_for_scope",
     "validate_loa_for_scope",
 ]

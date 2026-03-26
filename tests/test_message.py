@@ -234,22 +234,22 @@ def test_validate_version_compat_same_version():
 
 def test_validate_version_compat_lower_minor():
     from rcan.message import validate_version_compat
-    assert validate_version_compat("1.0") is True
+    assert validate_version_compat("2.0") is True
 
 
 def test_validate_version_compat_wrong_major():
     from rcan.message import validate_version_compat
     from rcan.exceptions import VersionIncompatibleError
     with pytest.raises(VersionIncompatibleError):
-        validate_version_compat("2.0")
+        validate_version_compat("1.0")
 
 
 def test_from_dict_version_check():
     """from_dict should validate version compatibility."""
     from rcan.exceptions import VersionIncompatibleError
     data = {
-        "rcan": "2.0",
-        "rcan_version": "2.0",
+        "rcan": "1.0",
+        "rcan_version": "1.0",
         "cmd": "move_forward",
         "target": TARGET,
     }

@@ -183,17 +183,48 @@ from rcan.competition import (
 # v1.6 modules — Human Identity Verification (GAP-14)
 from rcan import identity
 from rcan.identity import (
-    LevelOfAssurance,
+    Role,
+    LevelOfAssurance,  # backward-compat alias for Role
+    ROLE_TO_JWT_LEVEL,
+    role_from_jwt_level,
+    SCOPE_MIN_ROLE,
     IdentityRecord,
     LoaPolicy,
     DEFAULT_LOA_POLICY,
     PRODUCTION_LOA_POLICY,
-    extract_loa_from_jwt,
+    extract_role_from_jwt,
+    extract_loa_from_jwt,  # backward-compat alias
+    extract_identity_from_jwt,
+    validate_role_for_scope,
     validate_loa_for_scope,
 )
 
-__version__ = "0.9.0"
-__spec_version__ = "1.10.0"
+# v2.1 modules
+from rcan import firmware, sbom, m2m
+from rcan.firmware import (
+    FirmwareManifest,
+    FirmwareComponent,
+    FirmwareIntegrityError,
+    sign_manifest,
+    verify_manifest,
+    firmware_hash_from_manifest,
+)
+from rcan.sbom import (
+    RCANBOM,
+    SBOMComponent,
+    RCANSBOMExtensions,
+)
+from rcan.m2m import (
+    M2MPeerClaims,
+    M2MTrustedClaims,
+    M2MAuthError,
+    parse_m2m_peer_token,
+    verify_m2m_trusted_token,
+    RRFRevocationPoller,
+)
+
+__version__ = "1.1.0"
+__spec_version__ = "2.1.0"
 
 __all__ = [
     # Address
@@ -324,15 +355,43 @@ __all__ = [
     "validate_media_chunks",
     "make_training_data_message",
     "make_stream_chunk",
-    # v1.6 — Human Identity Verification (GAP-14)
+    # v1.6 — Human Identity Verification (GAP-14) / v2.1 RBAC
     "identity",
+    "Role",
     "LevelOfAssurance",
+    "ROLE_TO_JWT_LEVEL",
+    "role_from_jwt_level",
+    "SCOPE_MIN_ROLE",
     "IdentityRecord",
     "LoaPolicy",
     "DEFAULT_LOA_POLICY",
     "PRODUCTION_LOA_POLICY",
+    "extract_role_from_jwt",
     "extract_loa_from_jwt",
+    "extract_identity_from_jwt",
+    "validate_role_for_scope",
     "validate_loa_for_scope",
+    # v2.1 — Firmware Manifests
+    "firmware",
+    "FirmwareManifest",
+    "FirmwareComponent",
+    "FirmwareIntegrityError",
+    "sign_manifest",
+    "verify_manifest",
+    "firmware_hash_from_manifest",
+    # v2.1 — SBOM
+    "sbom",
+    "RCANBOM",
+    "SBOMComponent",
+    "RCANSBOMExtensions",
+    # v2.1 — M2M Authorization
+    "m2m",
+    "M2MPeerClaims",
+    "M2MTrustedClaims",
+    "M2MAuthError",
+    "parse_m2m_peer_token",
+    "verify_m2m_trusted_token",
+    "RRFRevocationPoller",
     # v1.10 — Competition Protocol
     "competition",
     "COMPETITION_SCOPE_LEVEL",

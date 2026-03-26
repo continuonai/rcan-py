@@ -49,6 +49,11 @@ CANONICAL_TABLE = {
     "COMPETITION_SCORE": 38,
     "SEASON_STANDING": 39,
     "PERSONAL_RESEARCH_RESULT": 40,
+    # Authority & attestation — v2.1 (41–44)
+    "AUTHORITY_ACCESS":     41,
+    "AUTHORITY_RESPONSE":   42,
+    "FIRMWARE_ATTESTATION": 43,
+    "SBOM_UPDATE":          44,
 }
 
 
@@ -80,7 +85,7 @@ def test_no_duplicate_values():
 
 
 def test_canonical_count():
-    """MessageType should have exactly 40 members (v1.10)."""
-    assert len(MessageType) == 40, (
-        f"Expected 40 MessageType members, got {len(MessageType)}"
+    """MessageType should have exactly 44 members (v2.1)."""
+    assert len(MessageType) == 44, (
+        f"Expected 44 MessageType members, got {len(MessageType)}"
     )

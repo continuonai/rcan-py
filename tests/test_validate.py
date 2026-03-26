@@ -134,7 +134,7 @@ def test_validate_uri_too_short():
 
 
 VALID_MSG = {
-    "rcan": "1.2",
+    "rcan": "2.1.0",
     "cmd": "move_forward",
     "target": "rcan://registry.rcan.dev/acme/arm/v2/unit-001",
     "params": {"distance_m": 1.0},
@@ -198,7 +198,7 @@ def test_validate_message_no_signature_warns():
 
 
 VALID_CONFIG = {
-    "rcan_version": "1.2",
+    "rcan_version": "2.1.0",
     "metadata": {
         "manufacturer": "acme",
         "model": "robotarm",
@@ -418,7 +418,7 @@ class TestValidateMessageOpenCastorFormat:
     def test_classic_wire_format_still_works(self):
         """Classic wire format {rcan, cmd, target} continues to pass."""
         msg = {
-            "rcan": "1.4",
+            "rcan": "2.1.0",
             "cmd": "stop",
             "target": "rcan://rcan.dev/acme/arm/v1/unit-001",
         }
@@ -438,7 +438,7 @@ class TestValidateMessageOpenCastorFormat:
                 "capabilities": ["navigation", "speech"],
                 "limitations": ["cannot lift > 2kg"],
                 "contact": "safety@example.com",
-                "rcan_version": "1.4",
+                "rcan_version": "2.1.0",
                 "p66_conformance_pct": 87,
                 "audit_enabled": True,
             },

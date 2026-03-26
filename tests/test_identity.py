@@ -1,4 +1,4 @@
-"""Tests for rcan.identity — Human Identity Verification (GAP-14)."""
+"""Tests for rcan.identity — RCAN v2.1 RBAC (§2)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,18 @@ import pytest
 from rcan.identity import (
     DEFAULT_LOA_POLICY,
     PRODUCTION_LOA_POLICY,
+    ROLE_TO_JWT_LEVEL,
+    SCOPE_MIN_ROLE,
     IdentityRecord,
     LevelOfAssurance,
     LoaPolicy,
+    Role,
+    extract_identity_from_jwt,
     extract_loa_from_jwt,
+    extract_role_from_jwt,
+    role_from_jwt_level,
     validate_loa_for_scope,
+    validate_role_for_scope,
 )
 
 
@@ -36,28 +43,69 @@ def make_jwt(payload: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LevelOfAssurance
+# Role enum
 # ---------------------------------------------------------------------------
 
 
-class TestLevelOfAssurance:
+class TestRole:
     def test_values(self):
-        assert LevelOfAssurance.ANONYMOUS == 1
-        assert LevelOfAssurance.EMAIL_VERIFIED == 2
-        assert LevelOfAssurance.HARDWARE_TOKEN == 3
+        assert Role.GUEST == 1
+        assert Role.OPERATOR == 2
+        assert Role.CONTRIBUTOR == 3
+        assert Role.ADMIN == 4
+        assert Role.M2M_PEER == 5
+        assert Role.CREATOR == 6
+        assert Role.M2M_TRUSTED == 7
 
-    def test_is_int_enum(self):
-        assert int(LevelOfAssurance.ANONYMOUS) == 1
-        assert int(LevelOfAssurance.EMAIL_VERIFIED) == 2
+    def test_ordering(self):
+        assert Role.GUEST < Role.OPERATOR < Role.CONTRIBUTOR
+        assert Role.CONTRIBUTOR < Role.ADMIN < Role.M2M_PEER
+        assert Role.M2M_PEER < Role.CREATOR < Role.M2M_TRUSTED
 
-    def test_comparison(self):
-        assert LevelOfAssurance.HARDWARE_TOKEN > LevelOfAssurance.EMAIL_VERIFIED
-        assert LevelOfAssurance.EMAIL_VERIFIED > LevelOfAssurance.ANONYMOUS
+    def test_is_m2m(self):
+        record = IdentityRecord(sub="robot", role=Role.M2M_PEER)
+        assert record.is_m2m is True
+        record2 = IdentityRecord(sub="robot", role=Role.M2M_TRUSTED)
+        assert record2.is_m2m is True
+        record3 = IdentityRecord(sub="human", role=Role.CREATOR)
+        assert record3.is_m2m is False
 
-    def test_from_int(self):
-        assert LevelOfAssurance(1) == LevelOfAssurance.ANONYMOUS
-        assert LevelOfAssurance(2) == LevelOfAssurance.EMAIL_VERIFIED
-        assert LevelOfAssurance(3) == LevelOfAssurance.HARDWARE_TOKEN
+    def test_backward_compat_alias(self):
+        """LevelOfAssurance must be an alias for Role."""
+        assert LevelOfAssurance is Role
+
+
+# ---------------------------------------------------------------------------
+# JWT level mapping
+# ---------------------------------------------------------------------------
+
+
+class TestRoleJwtLevelMapping:
+    def test_all_roles_have_jwt_levels(self):
+        for role in Role:
+            assert role in ROLE_TO_JWT_LEVEL, f"Role.{role.name} missing from ROLE_TO_JWT_LEVEL"
+
+    def test_jwt_levels(self):
+        assert ROLE_TO_JWT_LEVEL[Role.GUEST] == 1.0
+        assert ROLE_TO_JWT_LEVEL[Role.OPERATOR] == 2.0
+        assert ROLE_TO_JWT_LEVEL[Role.CONTRIBUTOR] == 2.5
+        assert ROLE_TO_JWT_LEVEL[Role.ADMIN] == 3.0
+        assert ROLE_TO_JWT_LEVEL[Role.M2M_PEER] == 4.0
+        assert ROLE_TO_JWT_LEVEL[Role.CREATOR] == 5.0
+        assert ROLE_TO_JWT_LEVEL[Role.M2M_TRUSTED] == 6.0
+
+    def test_role_from_jwt_level(self):
+        assert role_from_jwt_level(1.0) == Role.GUEST
+        assert role_from_jwt_level(2.0) == Role.OPERATOR
+        assert role_from_jwt_level(2.5) == Role.CONTRIBUTOR
+        assert role_from_jwt_level(3.0) == Role.ADMIN
+        assert role_from_jwt_level(4.0) == Role.M2M_PEER
+        assert role_from_jwt_level(5.0) == Role.CREATOR
+        assert role_from_jwt_level(6.0) == Role.M2M_TRUSTED
+
+    def test_role_from_jwt_level_unknown(self):
+        assert role_from_jwt_level(99.0) is None
+        assert role_from_jwt_level(0.0) is None
 
 
 # ---------------------------------------------------------------------------
@@ -69,51 +117,185 @@ class TestIdentityRecord:
     def test_construction(self):
         record = IdentityRecord(
             sub="user-123",
+            role=Role.ADMIN,
             registry_url="https://registry.example.com",
-            loa=LevelOfAssurance.EMAIL_VERIFIED,
-            registry_tier="authoritative",
+            scopes=["config", "status"],
             verified_at="2026-01-01T00:00:00Z",
         )
         assert record.sub == "user-123"
-        assert record.loa == LevelOfAssurance.EMAIL_VERIFIED
-        assert record.fido2_credential_id is None
+        assert record.role == Role.ADMIN
+        assert "config" in record.scopes
 
-    def test_with_fido2(self):
+    def test_m2m_peer_record(self):
         record = IdentityRecord(
-            sub="user-456",
-            registry_url="https://registry.example.com",
-            loa=LevelOfAssurance.HARDWARE_TOKEN,
-            registry_tier="authoritative",
-            verified_at="2026-01-01T00:00:00Z",
-            fido2_credential_id="cred-abc123",
+            sub="RRN-000000000005",
+            role=Role.M2M_PEER,
+            peer_rrn="RRN-000000000001",
+            scopes=["control", "status"],
         )
-        assert record.fido2_credential_id == "cred-abc123"
+        assert record.is_m2m is True
+        assert record.peer_rrn == "RRN-000000000001"
+
+    def test_m2m_trusted_record(self):
+        record = IdentityRecord(
+            sub="orchestrator:fleet-brain",
+            role=Role.M2M_TRUSTED,
+            fleet_rrns=["RRN-000000000001", "RRN-000000000005"],
+            scopes=["fleet.trusted"],
+        )
+        assert record.is_m2m is True
+        assert len(record.fleet_rrns) == 2
 
     def test_to_dict_roundtrip(self):
         record = IdentityRecord(
             sub="user-789",
+            role=Role.CREATOR,
             registry_url="https://registry.example.com",
-            loa=LevelOfAssurance.HARDWARE_TOKEN,
-            registry_tier="root",
+            scopes=["admin"],
             verified_at="2026-03-01T10:00:00Z",
-            fido2_credential_id="cred-xyz",
         )
         d = record.to_dict()
+        assert d["rcan_role"] == 5.0  # CREATOR → JWT level 5
         r2 = IdentityRecord.from_dict(d)
         assert r2.sub == record.sub
-        assert r2.loa == record.loa
-        assert r2.fido2_credential_id == record.fido2_credential_id
+        assert r2.role == record.role
 
-    def test_loa_stored_as_int_in_dict(self):
-        record = IdentityRecord(
-            sub="u1",
-            registry_url="https://r.example.com",
-            loa=LevelOfAssurance.EMAIL_VERIFIED,
-            registry_tier="community",
-            verified_at="2026-01-01T00:00:00Z",
-        )
-        d = record.to_dict()
-        assert d["loa"] == 2
+    def test_from_dict_v1x_loa_fallback(self):
+        """from_dict must handle old v1.x 'loa' integer claims."""
+        # v1.x tokens used loa: 1 (ANONYMOUS), 2, 3
+        data = {"sub": "old-user", "loa": 1}
+        record = IdentityRecord.from_dict(data)
+        # loa=1 → JWT level 1.0 → Role.GUEST
+        assert record.role == Role.GUEST
+
+
+# ---------------------------------------------------------------------------
+# extract_role_from_jwt
+# ---------------------------------------------------------------------------
+
+
+class TestExtractRoleFromJwt:
+    def test_guest_from_rcan_role_1(self):
+        token = make_jwt({"sub": "u", "rcan_role": 1, "exp": time.time() + 3600})
+        assert extract_role_from_jwt(token) == Role.GUEST
+
+    def test_operator_from_rcan_role_2(self):
+        token = make_jwt({"sub": "u", "rcan_role": 2})
+        assert extract_role_from_jwt(token) == Role.OPERATOR
+
+    def test_contributor_from_rcan_role_2_5(self):
+        token = make_jwt({"sub": "u", "rcan_role": 2.5})
+        assert extract_role_from_jwt(token) == Role.CONTRIBUTOR
+
+    def test_admin_from_rcan_role_3(self):
+        token = make_jwt({"sub": "u", "rcan_role": 3})
+        assert extract_role_from_jwt(token) == Role.ADMIN
+
+    def test_m2m_peer_from_rcan_role_4(self):
+        token = make_jwt({"sub": "u", "rcan_role": 4})
+        assert extract_role_from_jwt(token) == Role.M2M_PEER
+
+    def test_creator_from_rcan_role_5(self):
+        token = make_jwt({"sub": "u", "rcan_role": 5})
+        assert extract_role_from_jwt(token) == Role.CREATOR
+
+    def test_m2m_trusted_from_rcan_role_6(self):
+        token = make_jwt({"sub": "u", "rcan_role": 6})
+        assert extract_role_from_jwt(token) == Role.M2M_TRUSTED
+
+    def test_v1x_loa_fallback(self):
+        """Old v1.x tokens with 'loa' claim should parse to nearest Role."""
+        token = make_jwt({"sub": "u", "loa": 1})
+        assert extract_role_from_jwt(token) == Role.GUEST
+
+    def test_missing_claim_defaults_to_guest(self):
+        token = make_jwt({"sub": "u", "exp": time.time() + 3600})
+        assert extract_role_from_jwt(token) == Role.GUEST
+
+    def test_invalid_token_defaults_to_guest(self):
+        assert extract_role_from_jwt("not.a.jwt") == Role.GUEST
+
+    def test_backward_compat_alias(self):
+        """extract_loa_from_jwt must still work."""
+        token = make_jwt({"sub": "u", "rcan_role": 3})
+        assert extract_loa_from_jwt(token) == Role.ADMIN
+
+    def test_extract_identity_from_jwt(self):
+        token = make_jwt({
+            "sub": "RRN-000000000005",
+            "rcan_role": 4,
+            "rcan_scopes": ["control", "status"],
+            "peer_rrn": "RRN-000000000001",
+        })
+        identity = extract_identity_from_jwt(token)
+        assert identity.sub == "RRN-000000000005"
+        assert identity.role == Role.M2M_PEER
+        assert "control" in identity.scopes
+        assert identity.peer_rrn == "RRN-000000000001"
+
+
+# ---------------------------------------------------------------------------
+# validate_role_for_scope
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRoleForScope:
+    def test_guest_passes_status(self):
+        ok, reason = validate_role_for_scope(Role.GUEST, "status")
+        assert ok
+        assert reason == ""
+
+    def test_guest_fails_control(self):
+        ok, reason = validate_role_for_scope(Role.GUEST, "control")
+        assert not ok
+        assert "OPERATOR" in reason or "control" in reason.lower()
+
+    def test_operator_passes_control(self):
+        ok, _ = validate_role_for_scope(Role.OPERATOR, "control")
+        assert ok
+
+    def test_contributor_passes_contribute(self):
+        ok, _ = validate_role_for_scope(Role.CONTRIBUTOR, "contribute")
+        assert ok
+
+    def test_operator_fails_config(self):
+        ok, _ = validate_role_for_scope(Role.OPERATOR, "config")
+        assert not ok
+
+    def test_admin_passes_config(self):
+        ok, _ = validate_role_for_scope(Role.ADMIN, "config")
+        assert ok
+
+    def test_creator_passes_admin(self):
+        ok, _ = validate_role_for_scope(Role.CREATOR, "admin")
+        assert ok
+
+    def test_m2m_peer_passes_control(self):
+        ok, _ = validate_role_for_scope(Role.M2M_PEER, "control")
+        assert ok
+
+    def test_m2m_trusted_passes_fleet_trusted(self):
+        ok, _ = validate_role_for_scope(Role.M2M_TRUSTED, "fleet.trusted")
+        assert ok
+
+    def test_creator_fails_fleet_trusted(self):
+        ok, _ = validate_role_for_scope(Role.CREATOR, "fleet.trusted")
+        assert not ok
+
+    def test_unknown_scope_applies_operator_minimum(self):
+        ok, _ = validate_role_for_scope(Role.GUEST, "custom_unknown_scope")
+        assert not ok
+
+    def test_backward_compat_validate_loa_for_scope(self):
+        """validate_loa_for_scope alias must still work."""
+        ok, _ = validate_loa_for_scope(Role.ADMIN, "config")
+        assert ok
+
+    def test_all_scopes_have_min_role(self):
+        """Every scope in SCOPE_MIN_ROLE must be satisfied by M2M_TRUSTED (highest role)."""
+        for scope in SCOPE_MIN_ROLE:
+            ok, reason = validate_role_for_scope(Role.M2M_TRUSTED, scope)
+            assert ok, f"M2M_TRUSTED should pass scope {scope!r}: {reason}"
 
 
 # ---------------------------------------------------------------------------
@@ -122,242 +304,18 @@ class TestIdentityRecord:
 
 
 class TestLoaPolicy:
-    def test_default_policy_all_1(self):
-        assert DEFAULT_LOA_POLICY.min_loa_for_discover == 1
-        assert DEFAULT_LOA_POLICY.min_loa_for_status == 1
-        assert DEFAULT_LOA_POLICY.min_loa_for_chat == 1
-        assert DEFAULT_LOA_POLICY.min_loa_for_control == 1
-        assert DEFAULT_LOA_POLICY.min_loa_for_safety == 1
+    def test_default_policy_all_guest(self):
+        p = DEFAULT_LOA_POLICY
+        assert p.min_role_for_discover == Role.GUEST
+        assert p.min_role_for_control == Role.GUEST
+        assert p.min_role_for_safety == Role.GUEST
 
-    def test_production_policy_values(self):
-        assert PRODUCTION_LOA_POLICY.min_loa_for_discover == 1
-        assert PRODUCTION_LOA_POLICY.min_loa_for_status == 1
-        assert PRODUCTION_LOA_POLICY.min_loa_for_chat == 1
-        assert PRODUCTION_LOA_POLICY.min_loa_for_control == 2
-        assert PRODUCTION_LOA_POLICY.min_loa_for_safety == 3
+    def test_production_policy(self):
+        p = PRODUCTION_LOA_POLICY
+        assert p.min_role_for_discover == Role.GUEST
+        assert p.min_role_for_control == Role.OPERATOR
+        assert p.min_role_for_safety == Role.CREATOR
 
     def test_custom_policy(self):
-        policy = LoaPolicy(
-            min_loa_for_discover=1,
-            min_loa_for_status=1,
-            min_loa_for_chat=1,
-            min_loa_for_control=3,
-            min_loa_for_safety=3,
-        )
-        assert policy.min_loa_for_control == 3
-
-
-# ---------------------------------------------------------------------------
-# extract_loa_from_jwt
-# ---------------------------------------------------------------------------
-
-
-class TestExtractLoaFromJwt:
-    def test_loa_1_anonymous(self):
-        token = make_jwt({"sub": "user", "loa": 1, "exp": time.time() + 3600})
-        loa = extract_loa_from_jwt(token)
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_loa_2_email_verified(self):
-        token = make_jwt({"sub": "user", "loa": 2, "exp": time.time() + 3600})
-        loa = extract_loa_from_jwt(token)
-        assert loa == LevelOfAssurance.EMAIL_VERIFIED
-
-    def test_loa_3_hardware_token(self):
-        token = make_jwt({"sub": "user", "loa": 3, "exp": time.time() + 3600})
-        loa = extract_loa_from_jwt(token)
-        assert loa == LevelOfAssurance.HARDWARE_TOKEN
-
-    def test_missing_loa_defaults_to_anonymous(self):
-        """Missing loa claim → ANONYMOUS (backward compatible)."""
-        token = make_jwt({"sub": "user", "exp": time.time() + 3600})
-        loa = extract_loa_from_jwt(token)
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_invalid_token_defaults_to_anonymous(self):
-        """Malformed JWT → ANONYMOUS (graceful degradation)."""
-        loa = extract_loa_from_jwt("not.a.jwt")
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_empty_token_defaults_to_anonymous(self):
-        loa = extract_loa_from_jwt("")
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_one_part_token(self):
-        loa = extract_loa_from_jwt("onlyone")
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_bad_base64_defaults_to_anonymous(self):
-        loa = extract_loa_from_jwt("header.!!! invalid base64 !!!.sig")
-        assert loa == LevelOfAssurance.ANONYMOUS
-
-    def test_loa_string_coerced_to_int(self):
-        """Some JWTs may store loa as a string "2"."""
-        token = make_jwt({"sub": "user", "loa": "2"})
-        loa = extract_loa_from_jwt(token)
-        assert loa == LevelOfAssurance.EMAIL_VERIFIED
-
-
-# ---------------------------------------------------------------------------
-# validate_loa_for_scope
-# ---------------------------------------------------------------------------
-
-
-class TestValidateLaoForScope:
-    # --- Default policy (all LoA = 1) ---
-
-    def test_anonymous_passes_all_scopes_default_policy(self):
-        for scope in ["discover", "status", "chat", "control", "safety"]:
-            valid, reason = validate_loa_for_scope(LevelOfAssurance.ANONYMOUS, scope)
-            assert valid, f"Expected scope={scope} to pass with default policy, got reason={reason}"
-
-    def test_higher_loa_always_passes(self):
-        for loa in LevelOfAssurance:
-            valid, _ = validate_loa_for_scope(loa, "control")
-            assert valid
-
-    # --- Production policy ---
-
-    def test_control_requires_loa2_production(self):
-        valid, reason = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "control",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert not valid
-        assert "2" in reason or "loa" in reason.lower()
-
-    def test_control_loa2_passes_production(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED,
-            "control",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    def test_safety_requires_loa3_production(self):
-        valid, reason = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED,
-            "safety",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert not valid
-        assert "3" in reason or "loa" in reason.lower()
-
-    def test_safety_loa3_passes_production(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.HARDWARE_TOKEN,
-            "safety",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    def test_discover_loa1_passes_production(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "discover",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    def test_status_loa1_passes_production(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "status",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    # --- Scope aliases ---
-
-    def test_teleop_maps_to_control(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "teleop",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        # teleop maps to control (requires LoA 2 in production)
-        assert not valid
-
-    def test_estop_maps_to_safety(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED,
-            "estop",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        # estop maps to safety (requires LoA 3)
-        assert not valid
-
-    def test_observer_maps_to_status(self):
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "observer",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    # --- min_loa_overrides ---
-
-    def test_override_increases_requirement(self):
-        """Override can increase control requirement beyond production policy."""
-        valid, reason = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED,
-            "control",
-            min_loa_overrides={"control": 3},
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert not valid
-        assert "3" in reason or "loa" in reason.lower()
-
-    def test_override_decreases_requirement(self):
-        """Override can relax safety requirement (not recommended, but possible)."""
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "safety",
-            min_loa_overrides={"safety": 1},
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    def test_override_takes_precedence_over_policy(self):
-        """min_loa_overrides dict wins over policy value."""
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED,
-            "control",
-            min_loa_overrides={"control": 2},  # matches LoA
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert valid
-
-    def test_unknown_scope_uses_control_default(self):
-        """Unknown scopes apply control-level minimum as safe default."""
-        valid, _ = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "custom_unknown_scope",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        # Production policy: control ≥ 2 → ANONYMOUS (1) should fail
-        assert not valid
-
-    def test_reason_empty_on_success(self):
-        valid, reason = validate_loa_for_scope(
-            LevelOfAssurance.EMAIL_VERIFIED, "control"
-        )
-        assert valid
-        assert reason == ""
-
-    def test_reason_contains_scope_on_failure(self):
-        _, reason = validate_loa_for_scope(
-            LevelOfAssurance.ANONYMOUS,
-            "safety",
-            policy=PRODUCTION_LOA_POLICY,
-        )
-        assert "safety" in reason.lower()
-
-    # --- Backward compatibility ---
-
-    def test_backward_compat_default_policy_allows_all(self):
-        """Default policy (all LoA=1) must not break any existing LoA=1 callers."""
-        for scope in ["discover", "status", "chat", "control", "safety", "teleop", "estop"]:
-            valid, _ = validate_loa_for_scope(LevelOfAssurance.ANONYMOUS, scope)
-            assert valid, f"scope={scope} should pass with DEFAULT_LOA_POLICY"
+        p = LoaPolicy(min_role_for_control=Role.ADMIN, min_role_for_safety=Role.CREATOR)
+        assert p.min_role_for_control == Role.ADMIN

@@ -131,3 +131,86 @@ class RobotURI:
             version=self.version,
             device_id=device_id,
         )
+
+
+    # ------------------------------------------------------------------
+    # v2.1 — Signed RURI
+    # ------------------------------------------------------------------
+
+    @property
+    def path(self) -> str:
+        """The signable path component (without scheme, without query string)."""
+        return f"{self.registry}/{self.manufacturer}/{self.model}/{self.version}/{self.device_id}"
+
+    def sign(self, private_key_bytes: bytes) -> str:
+        """Return a signed RURI string (``rcan://...?sig=<base64url>``).
+
+        The signature is an Ed25519 signature over the UTF-8 encoded path
+        (no scheme, no query string). Required at L2+ conformance.
+
+        Args:
+            private_key_bytes: 32-byte Ed25519 private key seed.
+
+        Returns:
+            Signed RURI string including ``?sig=<base64url>``.
+
+        Raises:
+            ImportError: If ``cryptography`` package is not installed.
+        """
+        try:
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        except ImportError as exc:
+            raise ImportError(
+                "Install 'cryptography' to sign RURIs: pip install cryptography"
+            ) from exc
+
+        import base64
+        private_key = Ed25519PrivateKey.from_private_bytes(private_key_bytes)
+        sig_bytes = private_key.sign(self.path.encode())
+        sig_b64 = base64.urlsafe_b64encode(sig_bytes).rstrip(b"=").decode()
+        return f"{self}?sig={sig_b64}"
+
+    def verify_sig(self, sig_b64: str, public_key_bytes: bytes) -> bool:
+        """Verify an RURI signature.
+
+        Args:
+            sig_b64:          Base64url-encoded Ed25519 signature (from ``?sig=``).
+            public_key_bytes: 32-byte Ed25519 public key.
+
+        Returns:
+            True if valid.
+
+        Raises:
+            RCANAddressError: If the signature is invalid.
+            ImportError: If ``cryptography`` is not installed.
+        """
+        try:
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+            from cryptography.exceptions import InvalidSignature
+        except ImportError as exc:
+            raise ImportError("Install 'cryptography' to verify RURIs: pip install cryptography") from exc
+
+        import base64
+        try:
+            sig_bytes = base64.urlsafe_b64decode(sig_b64 + "==")
+            pub_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            pub_key.verify(sig_bytes, self.path.encode())
+            return True
+        except InvalidSignature as exc:
+            raise RCANAddressError(
+                f"RURI_SIGNATURE_INVALID for {self!r}"
+            ) from exc
+
+    @classmethod
+    def parse_signed(cls, uri: str) -> tuple["RobotURI", str | None]:
+        """Parse a (possibly signed) RURI string.
+
+        Returns:
+            ``(RobotURI, sig_b64)`` where ``sig_b64`` is None if unsigned.
+        """
+        sig: str | None = None
+        base_uri = uri
+        if "?sig=" in uri:
+            base_uri, _, sig_part = uri.partition("?sig=")
+            sig = sig_part.split("&")[0] if sig_part else None
+        return cls.parse(base_uri), sig
