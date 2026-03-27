@@ -142,19 +142,20 @@ class TestHybridSigning:
         pub_pq = MLDSAKeyPair.from_public_bytes(pq_kp.public_key)
         verify_message(msg, [pub_ed], pq_trusted_keys=[pub_pq])  # no exception
 
-    def test_ed_only_verify_still_works(self, ed_kp):
+    def test_ed_only_verify_legacy_compat(self, ed_kp):
+        """Ed25519-only messages still verify with require_pq=False (legacy v2.1 compat)."""
         msg = _msg()
         sign_message(msg, ed_kp)
         pub_ed = KeyPair.from_public_pem(ed_kp.public_pem)
-        verify_message(msg, [pub_ed])  # no exception — v2.1 compat
+        verify_message(msg, [pub_ed], require_pq=False)  # explicit legacy compat
 
     def test_hybrid_msg_pq_trusted_no_pq_sig_skips(self, ed_kp, pq_kp):
-        """v2.1 message (no pq_sig) with pq_trusted_keys provided — skip PQ, no error."""
+        """v2.1 message (no pq_sig) — accepted only with require_pq=False (legacy compat)."""
         msg = _msg()
         sign_message(msg, ed_kp)  # Ed25519 only
         pub_ed = KeyPair.from_public_pem(ed_kp.public_pem)
         pub_pq = MLDSAKeyPair.from_public_bytes(pq_kp.public_key)
-        verify_message(msg, [pub_ed], pq_trusted_keys=[pub_pq])  # no exception
+        verify_message(msg, [pub_ed], pq_trusted_keys=[pub_pq], require_pq=False)  # explicit compat
 
     def test_require_pq_raises_when_absent(self, ed_kp):
         msg = _msg()

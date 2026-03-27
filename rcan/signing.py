@@ -479,11 +479,12 @@ def sign_message(
     """
     Sign an :class:`~rcan.RCANMessage` with Ed25519 (and optionally ML-DSA-65).
 
-    In RCAN v2.2+ hybrid mode, pass both ``keypair`` (Ed25519) and
-    ``pq_keypair`` (ML-DSA-65).  The message will carry two signatures:
+    RCAN v2.2: ML-DSA-65 is the primary algorithm. Always pass ``pq_keypair``.
+    Ed25519 (``keypair``) is retained for verify-only backward compat with v2.1
+    receivers during the transition window.
 
-    - ``sig`` — Ed25519 signature dict (backward-compatible with v2.1)
-    - ``pq_sig`` — ML-DSA-65 signature dict (new in v2.2, field 17)
+    - ``sig`` — Ed25519 signature dict (legacy compat, verify-only from 2026)
+    - ``pq_sig`` — ML-DSA-65 signature dict (primary, FIPS 204)
 
     Args:
         msg:        :class:`~rcan.RCANMessage` to sign.
@@ -521,20 +522,23 @@ def verify_message(
     msg: Any,
     trusted_keys: "list[KeyPair]",
     pq_trusted_keys: "list[MLDSAKeyPair] | None" = None,
-    require_pq: bool = False,
+    require_pq: bool = True,
 ) -> None:
     """
     Verify signatures on an :class:`~rcan.RCANMessage`.
 
-    In hybrid mode (v2.2), verifies Ed25519 signature AND ML-DSA-65 signature
-    when ``pq_trusted_keys`` is provided.
+    RCAN v2.2: ML-DSA-65 is the PRIMARY signing algorithm. By default
+    ``require_pq=True`` — messages without ``pq_sig`` are rejected unless
+    you explicitly pass ``require_pq=False`` (for legacy v2.1 compat only).
 
     Args:
         msg:             Message with a ``signature`` field.
         trusted_keys:    Trusted Ed25519 public :class:`KeyPair` objects.
-        pq_trusted_keys: Trusted ML-DSA-65 :class:`MLDSAKeyPair` objects (optional).
-        require_pq:      If True, raise if ``pq_sig`` is absent or invalid.
-                         Default False for backward compat with v2.1 messages.
+        pq_trusted_keys: Trusted ML-DSA-65 :class:`MLDSAKeyPair` objects.
+                         Required when ``require_pq=True`` (default).
+        require_pq:      Raise if ``pq_sig`` is absent or invalid.
+                         Default True (v2.2 primary). Pass False only for
+                         backward compat with pre-v2.2 messages.
 
     Raises:
         RCANSignatureError: If any checked signature is missing, unknown, or invalid.

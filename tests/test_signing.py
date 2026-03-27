@@ -12,7 +12,7 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(not HAS_CRYPTO, reason="cryptography package not installed")
 
-from rcan.signing import KeyPair, sign_message, verify_message, _key_id_from_pem
+from rcan.signing import KeyPair, MLDSAKeyPair, sign_message, verify_message, _key_id_from_pem
 from rcan import RCANMessage, RobotURI
 from rcan.exceptions import RCANSignatureError
 
@@ -132,10 +132,12 @@ def test_sign_message_sets_signature():
 
 def test_verify_message_valid():
     kp = KeyPair.generate()
+    pq_kp = MLDSAKeyPair.generate()
     msg = make_msg()
-    sign_message(msg, kp)
+    sign_message(msg, kp, pq_keypair=pq_kp)
     trusted = [KeyPair.from_public_pem(kp.public_pem)]
-    verify_message(msg, trusted)  # should not raise
+    pq_trusted = [MLDSAKeyPair.from_public_bytes(pq_kp.public_key)]
+    verify_message(msg, trusted, pq_trusted_keys=pq_trusted)  # should not raise
 
 
 def test_verify_message_wrong_key():
@@ -150,13 +152,15 @@ def test_verify_message_wrong_key():
 
 def test_verify_message_tampered_payload():
     kp = KeyPair.generate()
+    pq_kp = MLDSAKeyPair.generate()
     msg = make_msg()
-    sign_message(msg, kp)
+    sign_message(msg, kp, pq_keypair=pq_kp)
     # Tamper with params after signing
     msg.params = {"distance_m": 999.0}
     trusted = [KeyPair.from_public_pem(kp.public_pem)]
+    pq_trusted = [MLDSAKeyPair.from_public_bytes(pq_kp.public_key)]
     with pytest.raises(RCANSignatureError, match="[Ss]ignature"):
-        verify_message(msg, trusted)
+        verify_message(msg, trusted, pq_trusted_keys=pq_trusted)
 
 
 def test_verify_unsigned_message():
@@ -175,13 +179,15 @@ def test_verify_unsupported_algorithm():
 def test_multiple_trusted_keys():
     kp1 = KeyPair.generate()
     kp2 = KeyPair.generate()
+    pq_kp = MLDSAKeyPair.generate()
     msg = make_msg()
-    sign_message(msg, kp2)
+    sign_message(msg, kp2, pq_keypair=pq_kp)
     trusted = [
         KeyPair.from_public_pem(kp1.public_pem),
         KeyPair.from_public_pem(kp2.public_pem),
     ]
-    verify_message(msg, trusted)  # should pass (kp2 is in list)
+    pq_trusted = [MLDSAKeyPair.from_public_bytes(pq_kp.public_key)]
+    verify_message(msg, trusted, pq_trusted_keys=pq_trusted)  # should pass (kp2 is in list)
 
 
 # ---------------------------------------------------------------------------
