@@ -144,3 +144,15 @@ All notable changes to rcan-py are documented here.
 - Exception hierarchy: RCANError and subclasses
 - `rcan-validate` CLI: message, config, audit, uri, all subcommands
 - `py.typed` marker for mypy compatibility
+
+## v1.2.1 (2026-03-27)
+
+### Breaking Changes
+- **Ed25519 fully removed** — `KeyPair` class raises `DeprecationWarning` and redirects to `MLDSAKeyPair`
+- **`pq_sig` field removed** from wire format — `signature` field is now the sole ML-DSA-65 block
+- **`sign_message()` simplified** — takes `(msg, mldsa_keypair)`, no `pq_keypair` kwarg
+- **`verify_message()` simplified** — takes `(msg, trusted: list[MLDSAKeyPair])`, no `require_pq` kwarg
+
+### Summary
+Clean ML-DSA-65-only release. Bob (RRN-000000000001) is the first robot running this stack.
+Q-Day timeline: ML-DSA-65 primary NOW (2026), Ed25519 sunset 2027, NIST deadline 2029.
