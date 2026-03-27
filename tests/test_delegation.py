@@ -155,14 +155,10 @@ class TestValidateDelegationChain:
         assert "depth" in reason.lower() or "exceed" in reason.lower()
 
     def test_signed_hop_verified(self):
-        """A signed hop should be verified against the provided keypair."""
-        import importlib
-        try:
-            from rcan.signing import KeyPair
-        except ImportError:
-            pytest.skip("cryptography not available")
+        """A signed hop should be verified against the provided MLDSAKeyPair."""
+        from rcan.signing import MLDSAKeyPair
 
-        keypair = KeyPair.generate()
+        keypair = MLDSAKeyPair.generate()
         msg = make_msg()
         add_delegation_hop(
             msg,
@@ -174,7 +170,7 @@ class TestValidateDelegationChain:
 
         def get_public_key(ruri):
             if ruri == ROBOT_A:
-                return KeyPair.from_public_pem(keypair.public_pem)
+                return MLDSAKeyPair.from_public_bytes(keypair.public_key)
             return None
 
         valid, reason = validate_delegation_chain(msg, get_public_key)
@@ -182,14 +178,10 @@ class TestValidateDelegationChain:
 
     def test_invalid_signature_rejected(self):
         """A hop with a bad signature should fail validation."""
-        import importlib
-        try:
-            from rcan.signing import KeyPair
-        except ImportError:
-            pytest.skip("cryptography not available")
+        from rcan.signing import MLDSAKeyPair
 
-        keypair = KeyPair.generate()
-        wrong_keypair = KeyPair.generate()
+        keypair = MLDSAKeyPair.generate()
+        wrong_keypair = MLDSAKeyPair.generate()
 
         msg = make_msg()
         add_delegation_hop(
@@ -202,7 +194,7 @@ class TestValidateDelegationChain:
 
         # Resolve with WRONG key
         def get_wrong_key(ruri):
-            return KeyPair.from_public_pem(wrong_keypair.public_pem)
+            return MLDSAKeyPair.from_public_bytes(wrong_keypair.public_key)
 
         valid, reason = validate_delegation_chain(msg, get_wrong_key)
         assert valid is False

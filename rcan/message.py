@@ -203,8 +203,7 @@ class RCANMessage:
         timestamp:      Unix timestamp. Auto-set if not provided.
         sender:         Sender identity (operator URI or name).
         scope:          Authorization scope (e.g. ``"operator"``, ``"fleet"``).
-        signature:      Ed25519 signature dict (``alg``, ``kid``, ``value``).
-        pq_sig:         ML-DSA-65 signature dict (v2.2 hybrid, FIPS 204).  ``None`` on pre-v2.2 messages.
+        signature:      ML-DSA-65 signature dict (``alg: "ml-dsa-65"``, ``kid``, ``value``). RCAN v2.2+.
         rcan_version:   Explicit spec version (mirrors ``rcan`` for v1.5 compat).
         sender_type:    Category of sender (GAP-08: cloud relay identity).
         cloud_provider: Cloud provider name when sender_type==cloud_function.
@@ -254,8 +253,6 @@ class RCANMessage:
     firmware_hash: Optional[str] = None    # SHA-256 of sender's firmware manifest (field 13)
     attestation_ref: Optional[str] = None  # URI to sender's SBOM endpoint (field 14)
 
-    # v2.2 additions — post-quantum hybrid signing (RCAN §7.2)
-    pq_sig: Optional[dict] = None          # ML-DSA-65 signature dict (field 16, FIPS 204)
 
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
@@ -281,12 +278,12 @@ class RCANMessage:
         # v2.1: hard-remove signature:"pending" — rejected at parse time
         if isinstance(self.signature, dict) and self.signature.get("value") == "pending":
             raise RCANValidationError(
-                "signature:'pending' is not valid in RCAN v2.1. "
+                "signature:'pending' is not valid in RCAN v2.2. "
                 "Sign the message before sending or omit the signature field."
             )
         if isinstance(self.signature, str) and self.signature == "pending":
             raise RCANValidationError(
-                "signature:'pending' is not valid in RCAN v2.1."
+                "signature:'pending' is not valid in RCAN v2.2."
             )
 
     # ------------------------------------------------------------------
@@ -351,9 +348,6 @@ class RCANMessage:
             d["firmware_hash"] = self.firmware_hash
         if self.attestation_ref is not None:
             d["attestation_ref"] = self.attestation_ref
-        # v2.2 envelope fields — PQ hybrid signing
-        if self.pq_sig is not None:
-            d["pq_sig"] = self.pq_sig
         return d
 
     def to_json(self, indent: int | None = None) -> str:
@@ -421,8 +415,6 @@ class RCANMessage:
             # v2.1
             firmware_hash=data.get("firmware_hash"),
             attestation_ref=data.get("attestation_ref"),
-            # v2.2
-            pq_sig=data.get("pq_sig"),
         )
 
     @classmethod
