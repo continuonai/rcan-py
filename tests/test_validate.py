@@ -5,18 +5,16 @@ from __future__ import annotations
 import json
 import os
 
-
 from rcan.validate import (
-    RRN_RE,
-    RRN_DELEGATED_RE,
     RRN_ANY_RE,
-    validate_uri,
-    validate_message,
-    validate_config,
-    validate_audit_chain,
+    RRN_DELEGATED_RE,
+    RRN_RE,
     ValidationResult,
+    validate_audit_chain,
+    validate_config,
+    validate_message,
+    validate_uri,
 )
-
 
 # ---------------------------------------------------------------------------
 # RRN regex pattern tests (Part 1 — address space expansion)
@@ -264,8 +262,8 @@ def test_validate_config_no_rrn_warns():
 
 
 def test_validate_audit_chain_valid(tmp_path):
-    from rcan.audit import AuditChain
     from rcan import CommitmentRecord
+    from rcan.audit import AuditChain
 
     chain_path = tmp_path / "audit.jsonl"
     chain = AuditChain(secret="test-secret")
@@ -297,8 +295,8 @@ def test_validate_audit_chain_not_found():
 
 
 def test_validate_audit_chain_tampered(tmp_path):
-    from rcan.audit import AuditChain
     from rcan import CommitmentRecord
+    from rcan.audit import AuditChain
 
     chain_path = tmp_path / "audit.jsonl"
     chain = AuditChain(secret="test-secret")

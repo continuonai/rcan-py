@@ -1,13 +1,9 @@
 """Tests for rcan.contribute — contribute messages and scope validation."""
 
-import time
-import pytest
-
 from rcan.contribute import (
     CONTRIBUTE_SCOPE_LEVEL,
     ComputeResource,
     ContributeCancel,
-    ContributeError,
     ContributeRequest,
     ContributeResult,
     WorkUnitStatus,

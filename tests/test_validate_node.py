@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import urllib.error
 
-
-from rcan.validate import validate_node, main
-
+from rcan.validate import main, validate_node
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -26,8 +26,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from rcan.identity import Role
-
 log = logging.getLogger(__name__)
 
 # RRF public key endpoint (Ed25519)
@@ -179,21 +177,32 @@ def _fetch_rrf_pubkey() -> bytes:
     global _rrf_pubkey_cache, _rrf_pubkey_fetched_at
 
     with _cache_lock:
-        if _rrf_pubkey_cache and (time.time() - _rrf_pubkey_fetched_at) < RRF_PUBKEY_CACHE_TTL:
+        if (
+            _rrf_pubkey_cache
+            and (time.time() - _rrf_pubkey_fetched_at) < RRF_PUBKEY_CACHE_TTL
+        ):
             return _rrf_pubkey_cache
 
     try:
         import urllib.request
+
         with urllib.request.urlopen(RRF_ROOT_PUBKEY_URL, timeout=5) as resp:
             pem_data = resp.read()
         from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
         pub_key_obj = load_pem_public_key(pem_data)
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
         if not isinstance(pub_key_obj, Ed25519PublicKey):
             raise M2MAuthError("RRF root key is not an Ed25519 key")
         raw_bytes = pub_key_obj.public_bytes(
-            encoding=__import__("cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]).Encoding.Raw,
-            format=__import__("cryptography.hazmat.primitives.serialization", fromlist=["PublicFormat"]).PublicFormat.Raw,
+            encoding=__import__(
+                "cryptography.hazmat.primitives.serialization", fromlist=["Encoding"]
+            ).Encoding.Raw,
+            format=__import__(
+                "cryptography.hazmat.primitives.serialization",
+                fromlist=["PublicFormat"],
+            ).PublicFormat.Raw,
         )
         with _cache_lock:
             _rrf_pubkey_cache = raw_bytes
@@ -213,6 +222,7 @@ def _fetch_rrf_revocations() -> set[str]:
 
     try:
         import urllib.request
+
         with urllib.request.urlopen(RRF_REVOCATION_URL, timeout=5) as resp:
             data = json.loads(resp.read())
         revoked: set[str] = set(data.get("revoked_orchestrators", []))
@@ -260,8 +270,8 @@ def verify_m2m_trusted_token(
         ImportError: If ``cryptography`` package is not installed.
     """
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError as exc:
         raise ImportError(
             "Install 'cryptography' for M2M_TRUSTED verification: pip install cryptography"
@@ -293,11 +303,15 @@ def verify_m2m_trusted_token(
         sig_bytes = base64.urlsafe_b64decode(claims.rrf_sig + "==")
         # Signature is over the canonical JSON of the payload (without rrf_sig)
         payload_for_verify = {k: v for k, v in payload.items() if k != "rrf_sig"}
-        canonical = json.dumps(payload_for_verify, separators=(",", ":"), sort_keys=True).encode()
+        canonical = json.dumps(
+            payload_for_verify, separators=(",", ":"), sort_keys=True
+        ).encode()
         pub_key = Ed25519PublicKey.from_public_bytes(pub_key_bytes)
         pub_key.verify(sig_bytes, canonical)
     except InvalidSignature as exc:
-        raise M2MAuthError("M2M_TRUSTED token RRF signature verification failed") from exc
+        raise M2MAuthError(
+            "M2M_TRUSTED token RRF signature verification failed"
+        ) from exc
     except Exception as exc:
         raise M2MAuthError(f"M2M_TRUSTED signature check error: {exc}") from exc
 
@@ -369,7 +383,9 @@ class RRFRevocationPoller:
     def _ensure_running(self) -> None:
         if self._thread is None or not self._thread.is_alive():
             self._stop_event.clear()
-            self._thread = threading.Thread(target=self._run, daemon=True, name="rrf-revocation-poller")
+            self._thread = threading.Thread(
+                target=self._run, daemon=True, name="rrf-revocation-poller"
+            )
             self._thread.start()
 
     def _run(self) -> None:

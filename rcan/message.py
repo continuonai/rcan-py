@@ -6,7 +6,6 @@ Spec: https://rcan.dev/spec#section-3
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
 import time
@@ -99,16 +98,16 @@ class MessageType(IntEnum):
     TRAINING_DATA = 36
 
     # Competition protocol — v1.10 (37–40)
-    COMPETITION_ENTER          = 37
-    COMPETITION_SCORE          = 38
-    SEASON_STANDING            = 39
-    PERSONAL_RESEARCH_RESULT   = 40
+    COMPETITION_ENTER = 37
+    COMPETITION_SCORE = 38
+    SEASON_STANDING = 39
+    PERSONAL_RESEARCH_RESULT = 40
 
     # Authority & attestation — v2.1 (41–44)
-    AUTHORITY_ACCESS           = 41  # authority → robot: EU AI Act Art. 16(j) audit request
-    AUTHORITY_RESPONSE         = 42  # robot → authority: audit data response
-    FIRMWARE_ATTESTATION       = 43  # robot → RRF: publish signed firmware manifest
-    SBOM_UPDATE                = 44  # robot → RRF: publish updated CycloneDX SBOM
+    AUTHORITY_ACCESS = 41  # authority → robot: EU AI Act Art. 16(j) audit request
+    AUTHORITY_RESPONSE = 42  # robot → authority: audit data response
+    FIRMWARE_ATTESTATION = 43  # robot → RRF: publish signed firmware manifest
+    SBOM_UPDATE = 44  # robot → RRF: publish updated CycloneDX SBOM
 
 
 # ---------------------------------------------------------------------------
@@ -250,9 +249,14 @@ class RCANMessage:
     transport_encoding: Optional[str] = None  # Transport encoding hint (GAP-17)
 
     # v2.1 additions — REQUIRED for all messages at L2+ conformance
-    firmware_hash: Optional[str] = None    # SHA-256 of sender's firmware manifest (field 13)
+    firmware_hash: Optional[str] = (
+        None  # SHA-256 of sender's firmware manifest (field 13)
+    )
     attestation_ref: Optional[str] = None  # URI to sender's SBOM endpoint (field 14)
 
+    # v2.2 additions — post-quantum signature fields (FIPS 204)
+    pq_sig: str = ""  # ML-DSA-65 post-quantum signature (base64url)
+    pq_alg: str = "ml-dsa-65"  # PQ algorithm identifier
 
     def __post_init__(self) -> None:
         # Normalize target to RobotURI
@@ -275,16 +279,20 @@ class RCANMessage:
             raise RCANValidationError(
                 "cloud_provider is required when sender_type == 'cloud_function'"
             )
+        # v2.2: delegation_chain max depth is 3
+        if len(self.delegation_chain) > 3:
+            raise ValueError("RCAN: delegation chain max depth is 3")
         # v2.1: hard-remove signature:"pending" — rejected at parse time
-        if isinstance(self.signature, dict) and self.signature.get("value") == "pending":
+        if (
+            isinstance(self.signature, dict)
+            and self.signature.get("value") == "pending"
+        ):
             raise RCANValidationError(
                 "signature:'pending' is not valid in RCAN v2.2. "
                 "Sign the message before sending or omit the signature field."
             )
         if isinstance(self.signature, str) and self.signature == "pending":
-            raise RCANValidationError(
-                "signature:'pending' is not valid in RCAN v2.2."
-            )
+            raise RCANValidationError("signature:'pending' is not valid in RCAN v2.2.")
 
     # ------------------------------------------------------------------
     # Serialization

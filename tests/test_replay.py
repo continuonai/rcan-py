@@ -5,10 +5,8 @@ from __future__ import annotations
 import time
 import uuid
 
-import pytest
-
-from rcan.replay import ReplayCache, validate_replay
 from rcan.message import RCANMessage
+from rcan.replay import ReplayCache, validate_replay
 
 TARGET = "rcan://registry.rcan.dev/acme/arm/v1/unit-001"
 
@@ -20,6 +18,7 @@ def make_msg(cmd="move_forward", **kwargs) -> RCANMessage:
 # ---------------------------------------------------------------------------
 # ReplayCache basics
 # ---------------------------------------------------------------------------
+
 
 class TestReplayCacheBasics:
     def test_fresh_message_allowed(self):
@@ -83,6 +82,7 @@ class TestReplayCacheBasics:
 # Safety message window
 # ---------------------------------------------------------------------------
 
+
 class TestSafetyWindow:
     def test_safety_message_uses_10s_window(self):
         """Safety messages must enforce 10s window even if config says 30s."""
@@ -122,6 +122,7 @@ class TestSafetyWindow:
 # Cache size and eviction
 # ---------------------------------------------------------------------------
 
+
 class TestCacheEviction:
     def test_overflow_evicts_oldest(self):
         cache = ReplayCache(window_s=300, max_size=5)
@@ -138,6 +139,7 @@ class TestCacheEviction:
 # ---------------------------------------------------------------------------
 # validate_replay function
 # ---------------------------------------------------------------------------
+
 
 class TestValidateReplay:
     def test_fresh_message_allowed(self):
@@ -172,6 +174,7 @@ class TestValidateReplay:
 # ---------------------------------------------------------------------------
 # Window configuration
 # ---------------------------------------------------------------------------
+
 
 class TestWindowConfig:
     def test_custom_window_respected(self):

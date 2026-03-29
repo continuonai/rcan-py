@@ -29,8 +29,8 @@ from __future__ import annotations
 import json
 import re
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -252,17 +252,24 @@ def validate_message(data: dict | str) -> ValidationResult:
         if result.ok:
             # Validate type is int or recognized string
             if isinstance(msg_type, int):
-                result.note(f"✅ RCAN message valid (OpenCastor format, type={msg_type})")
+                result.note(
+                    f"✅ RCAN message valid (OpenCastor format, type={msg_type})"
+                )
             elif isinstance(msg_type, str):
-                result.note(f"✅ RCAN message valid (OpenCastor format, type={msg_type!r})")
+                result.note(
+                    f"✅ RCAN message valid (OpenCastor format, type={msg_type!r})"
+                )
             else:
-                result.fail(f"'type' must be an int or string, got {type(msg_type).__name__}")
+                result.fail(
+                    f"'type' must be an int or string, got {type(msg_type).__name__}"
+                )
 
             if result.ok:
                 # Validate target URI if it looks like an RCAN URI
                 if isinstance(target, str) and target.startswith("rcan://"):
                     try:
                         from rcan.address import RobotURI
+
                         RobotURI.parse(target)
                         result.note(f"   target:   {target}")
                     except Exception:
@@ -290,18 +297,24 @@ def validate_message(data: dict | str) -> ValidationResult:
                     result.note(f"   confidence: {msg.confidence}")
                 if msg.is_signed:
                     sig = msg.signature
-                    result.note(f"   signature: alg={sig.get('alg')}, kid={sig.get('kid')}")
+                    result.note(
+                        f"   signature: alg={sig.get('alg')}, kid={sig.get('kid')}"
+                    )
                 else:
                     result.warn("Message is unsigned (recommended for production)")
                 if not msg.is_ai_driven:
-                    result.warn("No confidence score — add for RCAN §16 AI accountability")
+                    result.warn(
+                        "No confidence score — add for RCAN §16 AI accountability"
+                    )
             except Exception as e:
                 result.fail(f"Message validation failed: {e}")
 
     return result
 
 
-from rcan.version import SPEC_VERSION as _CURRENT_SPEC_VERSION  # type: ignore[assignment]
+from rcan.version import (
+    SPEC_VERSION as _CURRENT_SPEC_VERSION,  # type: ignore[assignment]
+)
 
 
 def validate_config(

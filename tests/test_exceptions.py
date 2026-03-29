@@ -5,15 +5,14 @@ from __future__ import annotations
 import pytest
 
 from rcan.exceptions import (
-    RCANError,
     RCANAddressError,
-    RCANValidationError,
+    RCANError,
     RCANGateError,
-    RCANSignatureError,
     RCANRegistryError,
+    RCANSignatureError,
     RCANTimeoutError,
+    RCANValidationError,
 )
-
 
 # ---------------------------------------------------------------------------
 # Base hierarchy

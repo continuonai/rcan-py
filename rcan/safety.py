@@ -157,9 +157,7 @@ def validate_safety_message(msg: dict[str, Any]) -> list[str]:
     # message_type must be 6
     mt = msg.get("message_type")
     if mt != SAFETY_MESSAGE_TYPE:
-        errors.append(
-            f"message_type must be {SAFETY_MESSAGE_TYPE}, got {mt!r}"
-        )
+        errors.append(f"message_type must be {SAFETY_MESSAGE_TYPE}, got {mt!r}")
 
     # ruri must be present and non-empty
     ruri = msg.get("ruri")

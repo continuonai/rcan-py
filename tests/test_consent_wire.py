@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from rcan.consent import (
-    ConsentRequestPayload,
-    ConsentGrantPayload,
     ConsentDenyPayload,
-    make_consent_request,
-    make_consent_grant,
+    ConsentGrantPayload,
+    ConsentRequestPayload,
     make_consent_deny,
+    make_consent_grant,
+    make_consent_request,
     validate_consent_message,
 )
-from rcan.message import RCANMessage, MessageType
+from rcan.message import MessageType, RCANMessage
 
 TARGET_RRN = "RRN-000000000001"
 REQUESTER_RRN = "RRN-000000000002"
@@ -175,7 +173,10 @@ class TestValidateConsentMessage:
 
     def test_unknown_cmd_invalid(self):
         from rcan.message import RCANMessage
-        msg = RCANMessage(cmd="CONSENT_UNKNOWN", target="rcan://rcan.dev/system/consent/v1/local")
+
+        msg = RCANMessage(
+            cmd="CONSENT_UNKNOWN", target="rcan://rcan.dev/system/consent/v1/local"
+        )
         valid, reason = validate_consent_message(msg)
         assert valid is False
 

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from rcan.registry import RegistryClient, RegistryEntry, RegistryPage
-from rcan.exceptions import RCANRegistryError
+import pytest
 
+from rcan.exceptions import RCANRegistryError
+from rcan.registry import RegistryClient, RegistryEntry, RegistryPage
 
 ROBOT_DATA = {
     "rrn": "RRN-000000000042",
@@ -29,7 +28,10 @@ def make_mock_response(data: dict, status: int = 200):
     resp.raise_for_status = MagicMock()
     if status >= 400:
         from httpx import HTTPStatusError
-        resp.raise_for_status.side_effect = HTTPStatusError("error", request=None, response=resp)
+
+        resp.raise_for_status.side_effect = HTTPStatusError(
+            "error", request=None, response=resp
+        )
     return resp
 
 
@@ -95,15 +97,19 @@ def test_register_requires_auth():
     client = RegistryClient()  # no api_key
     with pytest.raises(RCANRegistryError, match="API key required"):
         import asyncio
-        asyncio.run(client.register(
-            manufacturer="acme", model="arm", version="v2", device_id="x"
-        ))
+
+        asyncio.run(
+            client.register(
+                manufacturer="acme", model="arm", version="v2", device_id="x"
+            )
+        )
 
 
 def test_update_requires_auth():
     client = RegistryClient()
     with pytest.raises(RCANRegistryError, match="API key required"):
         import asyncio
+
         asyncio.run(client.update("RRN-000000000001", {"weight_kg": 1.0}))
 
 
@@ -116,6 +122,7 @@ def test_get_robot_no_httpx():
     client = RegistryClient()
     with patch.dict("sys.modules", {"httpx": None}):
         import asyncio
+
         with pytest.raises((ImportError, Exception)):
             asyncio.run(client.get_robot("RRN-000000000001"))
 

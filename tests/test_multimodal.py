@@ -191,8 +191,11 @@ class TestAddMediaRef:
         """REF mode has no size limit."""
         msg = base_msg()
         add_media_ref(
-            msg, "https://example.com/bigfile", "video/mp4",
-            "e" * 64, 10 * 1024 * 1024 * 1024  # 10 GB
+            msg,
+            "https://example.com/bigfile",
+            "video/mp4",
+            "e" * 64,
+            10 * 1024 * 1024 * 1024,  # 10 GB
         )  # should not raise
 
 
@@ -276,7 +279,9 @@ class TestValidateMediaChunks:
     def test_mixed_valid_and_invalid(self):
         msg = base_msg()
         add_media_inline(msg, b"good", "text/plain")  # valid
-        add_media_ref(msg, "https://example.com/f", "video/mp4", "bad", 100)  # invalid hash
+        add_media_ref(
+            msg, "https://example.com/f", "video/mp4", "bad", 100
+        )  # invalid hash
         valid, _ = validate_media_chunks(msg)
         assert not valid
 
@@ -296,10 +301,12 @@ class TestMakeTrainingDataMessage:
         assert msg.cmd == "TRAINING_DATA"
 
     def test_media_attached(self):
-        msg = make_training_data_message([
-            (b"frame1", "image/jpeg"),
-            (b"frame2", "image/jpeg"),
-        ])
+        msg = make_training_data_message(
+            [
+                (b"frame1", "image/jpeg"),
+                (b"frame2", "image/jpeg"),
+            ]
+        )
         assert len(msg.media_chunks) == 2
 
     def test_media_encoding_base64(self):
@@ -307,10 +314,12 @@ class TestMakeTrainingDataMessage:
         assert msg.media_chunks[0].encoding == MediaEncoding.BASE64
 
     def test_media_count_in_params(self):
-        msg = make_training_data_message([
-            (b"a", "image/jpeg"),
-            (b"b", "audio/wav"),
-        ])
+        msg = make_training_data_message(
+            [
+                (b"a", "image/jpeg"),
+                (b"b", "audio/wav"),
+            ]
+        )
         assert msg.params["media_count"] == 2
 
     def test_empty_media_list(self):

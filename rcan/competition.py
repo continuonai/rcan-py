@@ -15,7 +15,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from rcan.exceptions import RCANError
 from rcan.message import MessageType
@@ -124,9 +124,7 @@ class CompetitionScore:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.score <= 1.0):
-            raise CompetitionError(
-                f"score must be in [0.0, 1.0], got {self.score}"
-            )
+            raise CompetitionError(f"score must be in [0.0, 1.0], got {self.score}")
 
     @property
     def message_type(self) -> MessageType:
@@ -217,9 +215,7 @@ class PersonalResearchResult:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.score <= 1.0):
-            raise CompetitionError(
-                f"score must be in [0.0, 1.0], got {self.score}"
-            )
+            raise CompetitionError(f"score must be in [0.0, 1.0], got {self.score}")
 
     @property
     def message_type(self) -> MessageType:

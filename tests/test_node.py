@@ -10,7 +10,6 @@ import pytest
 from rcan.exceptions import RCANNodeError
 from rcan.node import NodeClient, _parse_rrn_prefix
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

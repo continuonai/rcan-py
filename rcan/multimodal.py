@@ -15,9 +15,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
@@ -45,7 +44,7 @@ class MediaEncoding(str, Enum):
     """How the media data is stored in the chunk."""
 
     BASE64 = "base64"  # Inline base64-encoded bytes
-    REF = "ref"        # External reference URL
+    REF = "ref"  # External reference URL
 
 
 @dataclass
@@ -220,7 +219,10 @@ def validate_media_chunks(message: Any) -> tuple[bool, str]:
     for idx, chunk in enumerate(chunks):
         if chunk.encoding == MediaEncoding.BASE64:
             if chunk.data_b64 is None:
-                return False, f"Chunk {idx} ({chunk.chunk_id}): data_b64 is None for inline chunk"
+                return (
+                    False,
+                    f"Chunk {idx} ({chunk.chunk_id}): data_b64 is None for inline chunk",
+                )
             try:
                 raw = base64.b64decode(chunk.data_b64)
             except Exception as exc:  # noqa: BLE001
@@ -277,7 +279,9 @@ def make_training_data_message(
     )
     for raw, mime_type in media:
         add_media_inline(msg, raw, mime_type)
-    log.debug("make_training_data_message: created message with %d media chunks", len(media))
+    log.debug(
+        "make_training_data_message: created message with %d media chunks", len(media)
+    )
     return msg
 
 

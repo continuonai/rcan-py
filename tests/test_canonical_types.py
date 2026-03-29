@@ -50,10 +50,10 @@ CANONICAL_TABLE = {
     "SEASON_STANDING": 39,
     "PERSONAL_RESEARCH_RESULT": 40,
     # Authority & attestation — v2.1 (41–44)
-    "AUTHORITY_ACCESS":     41,
-    "AUTHORITY_RESPONSE":   42,
+    "AUTHORITY_ACCESS": 41,
+    "AUTHORITY_RESPONSE": 42,
     "FIRMWARE_ATTESTATION": 43,
-    "SBOM_UPDATE":          44,
+    "SBOM_UPDATE": 44,
 }
 
 

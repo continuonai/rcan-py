@@ -1,7 +1,7 @@
 """Tests for rcan.message — RCANMessage and RCANResponse."""
 
-import json
 import pytest
+
 from rcan import RCANMessage, RCANResponse, RobotURI
 from rcan.exceptions import RCANValidationError
 
@@ -15,6 +15,7 @@ def make_msg(**kwargs) -> RCANMessage:
 # ---------------------------------------------------------------------------
 # RCANMessage
 # ---------------------------------------------------------------------------
+
 
 def test_basic_construction():
     msg = make_msg(params={"distance_m": 1.0}, confidence=0.9)
@@ -101,7 +102,10 @@ def test_is_ai_driven():
 
 
 def test_is_signed():
-    assert make_msg(signature={"alg": "ed25519", "kid": "k1", "value": "abc"}).is_signed is True
+    assert (
+        make_msg(signature={"alg": "ed25519", "kid": "k1", "value": "abc"}).is_signed
+        is True
+    )
     assert make_msg().is_signed is False
 
 
@@ -113,6 +117,7 @@ def test_repr():
 # ---------------------------------------------------------------------------
 # RCANResponse
 # ---------------------------------------------------------------------------
+
 
 def test_response_ok():
     r = RCANResponse(msg_id="abc", status="ok", message="done")
@@ -144,9 +149,11 @@ def test_response_to_dict():
 # v1.5 RCANMessage field tests
 # ---------------------------------------------------------------------------
 
+
 def test_rcan_version_default():
     """rcan_version should default to SPEC_VERSION."""
     from rcan.version import SPEC_VERSION
+
     msg = make_msg()
     assert msg.rcan_version == SPEC_VERSION
 
@@ -158,20 +165,23 @@ def test_sender_type_none_by_default():
 
 def test_sender_type_cloud_function():
     from rcan.message import SenderType
+
     msg = make_msg(sender_type=SenderType.cloud_function, cloud_provider="google-cloud")
     assert msg.sender_type == SenderType.cloud_function
     assert msg.cloud_provider == "google-cloud"
 
 
 def test_cloud_function_requires_provider():
-    from rcan.message import SenderType
     from rcan.exceptions import RCANValidationError
+    from rcan.message import SenderType
+
     with pytest.raises(RCANValidationError):
         make_msg(sender_type=SenderType.cloud_function)
 
 
 def test_cloud_relay_in_to_dict():
     from rcan.message import SenderType
+
     msg = make_msg(sender_type=SenderType.cloud_function, cloud_provider="aws-lambda")
     d = msg.to_dict()
     assert d["sender_type"] == "cloud_function"
@@ -219,7 +229,8 @@ def test_proximity_m_default_none():
 
 
 def test_make_cloud_relay_message():
-    from rcan.message import make_cloud_relay_message, SenderType
+    from rcan.message import SenderType, make_cloud_relay_message
+
     base = make_msg()
     relay = make_cloud_relay_message(base, provider="gcp")
     assert relay.sender_type == SenderType.cloud_function
@@ -229,17 +240,20 @@ def test_make_cloud_relay_message():
 def test_validate_version_compat_same_version():
     from rcan.message import validate_version_compat
     from rcan.version import SPEC_VERSION
+
     assert validate_version_compat(SPEC_VERSION) is True
 
 
 def test_validate_version_compat_lower_minor():
     from rcan.message import validate_version_compat
+
     assert validate_version_compat("2.0") is True
 
 
 def test_validate_version_compat_wrong_major():
-    from rcan.message import validate_version_compat
     from rcan.exceptions import VersionIncompatibleError
+    from rcan.message import validate_version_compat
+
     with pytest.raises(VersionIncompatibleError):
         validate_version_compat("1.0")
 
@@ -247,6 +261,7 @@ def test_validate_version_compat_wrong_major():
 def test_from_dict_version_check():
     """from_dict should validate version compatibility."""
     from rcan.exceptions import VersionIncompatibleError
+
     data = {
         "rcan": "1.0",
         "rcan_version": "1.0",

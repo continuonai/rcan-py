@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from rcan.exceptions import ReplayAttackError
@@ -58,7 +58,9 @@ class ReplayCache:
                    When full, the oldest entries are evicted.
     """
 
-    def __init__(self, window_s: int = _DEFAULT_WINDOW_S, max_size: int = _DEFAULT_MAX_SIZE) -> None:
+    def __init__(
+        self, window_s: int = _DEFAULT_WINDOW_S, max_size: int = _DEFAULT_MAX_SIZE
+    ) -> None:
         self.window_s = max(5, min(300, window_s))
         self.max_size = max(1, max_size)
         # msg_id -> monotonic time of first receipt

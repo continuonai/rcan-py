@@ -19,6 +19,7 @@ from rcan.exceptions import RCANGateError
 
 class GateResult(Enum):
     """Outcome of a safety gate check."""
+
     PASS = "pass"
     BLOCK = "block"
     PENDING = "pending"  # Awaiting HiTL approval
@@ -123,13 +124,15 @@ class HiTLGate:
 
     approval_fn: Callable[[str, dict, float | None], bool] | None = None
     timeout_s: float = 30.0
-    required_above: float | None = None   # e.g. 0.95 → require HiTL for very high confidence (sanity check)
-    required_below: float | None = None   # e.g. 0.7 → require HiTL when confidence is low
+    required_above: float | None = (
+        None  # e.g. 0.95 → require HiTL for very high confidence (sanity check)
+    )
+    required_below: float | None = (
+        None  # e.g. 0.7 → require HiTL when confidence is low
+    )
     raise_on_timeout: bool = False
 
-    def needs_approval(
-        self, action: str, confidence: float | None = None
-    ) -> bool:
+    def needs_approval(self, action: str, confidence: float | None = None) -> bool:
         """
         Return True if this action/confidence combination requires HiTL approval.
         """

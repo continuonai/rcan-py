@@ -1,7 +1,6 @@
 """Integration tests for RCAN non-HTTP transport layer."""
-import json
 
-import pytest
+import json
 
 from rcan import RCANMessage
 from rcan.transport import (
@@ -127,7 +126,11 @@ class TestTransportNegotiation:
     def test_select_transport_estop_prefers_minimal(self):
         msg = _make_estop()
         result = select_transport(
-            [TransportEncoding.HTTP, TransportEncoding.COMPACT, TransportEncoding.MINIMAL],
+            [
+                TransportEncoding.HTTP,
+                TransportEncoding.COMPACT,
+                TransportEncoding.MINIMAL,
+            ],
             msg,
         )
         assert result == TransportEncoding.MINIMAL

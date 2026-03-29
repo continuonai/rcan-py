@@ -48,8 +48,8 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "M2M_TRUSTED",
         "AUTHORITY_ACCESS",
         # v2.2 features — ML-DSA-65 PRIMARY (Q-Day timeline accelerated to 2026)
-        "PQ_HYBRID_SIGNING",    # ML-DSA-65 + Ed25519 hybrid (FIPS 204)
-        "ML_DSA_PRIMARY",       # ML-DSA-65 is the primary signing algorithm (Ed25519 = legacy compat only)
+        "PQ_HYBRID_SIGNING",  # ML-DSA-65 + Ed25519 hybrid (FIPS 204)
+        "ML_DSA_PRIMARY",  # ML-DSA-65 is the primary signing algorithm (Ed25519 = legacy compat only)
         # v2.2.1 features
         "MULTI_TYPE_ENTITY_NUMBERING",  # §21.2.2 RRN/RCN/RMN/RHN sequential registry IDs
     }

@@ -5,16 +5,13 @@ from __future__ import annotations
 import time
 from unittest.mock import patch
 
-import pytest
-
+from rcan.message import MessageType, RCANMessage
 from rcan.revocation import (
-    RevocationStatus,
     RevocationCache,
+    RevocationStatus,
     check_revocation,
     make_revocation_broadcast,
 )
-from rcan.message import RCANMessage, MessageType
-
 
 RRN = "RRN-000000000042"
 REGISTRY = "https://rcan.dev"
@@ -99,12 +96,14 @@ class TestCheckRevocation:
         from unittest.mock import MagicMock
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps({
-            "status": "revoked",
-            "revoked_at": time.time(),
-            "reason": "Stolen",
-            "authority": "rcan.dev",
-        }).encode()
+        mock_resp.read.return_value = json.dumps(
+            {
+                "status": "revoked",
+                "revoked_at": time.time(),
+                "reason": "Stolen",
+                "authority": "rcan.dev",
+            }
+        ).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 

@@ -1,22 +1,31 @@
 """Tests for rcan.types TypedDict definitions."""
+
 from __future__ import annotations
 
-import pytest
-from rcan.types import RCANMetadata, RCANAgentConfig, RCANConfig, RCANMessageEnvelope
+from rcan.types import RCANAgentConfig, RCANConfig, RCANMessageEnvelope, RCANMetadata
 from rcan.validate import validate_config
-
 
 # ---------------------------------------------------------------------------
 # TypedDict import / usage
 # ---------------------------------------------------------------------------
 
+
 def test_rcan_metadata_typed():
-    meta: RCANMetadata = {"manufacturer": "acme", "model": "arm", "version": "v1", "device_id": "unit-1"}
+    meta: RCANMetadata = {
+        "manufacturer": "acme",
+        "model": "arm",
+        "version": "v1",
+        "device_id": "unit-1",
+    }
     assert meta["manufacturer"] == "acme"
 
 
 def test_rcan_agent_config_typed():
-    agent: RCANAgentConfig = {"provider": "ollama", "model": "qwen2.5:7b", "temperature": 0.7}
+    agent: RCANAgentConfig = {
+        "provider": "ollama",
+        "model": "qwen2.5:7b",
+        "temperature": 0.7,
+    }
     assert agent["provider"] == "ollama"
 
 
@@ -44,6 +53,7 @@ def test_rcan_message_envelope_typed():
 # ---------------------------------------------------------------------------
 # Validate config — required key checks
 # ---------------------------------------------------------------------------
+
 
 def test_validate_config_missing_rcan_version():
     cfg = {
@@ -103,7 +113,9 @@ def test_validate_config_robot_name_backwards_compat():
 # rcan package-level imports
 # ---------------------------------------------------------------------------
 
+
 def test_rcan_types_importable_from_package():
-    from rcan import RCANConfig, RCANMetadata, RCANAgentConfig, RCANMessageEnvelope
+    from rcan import RCANConfig, RCANMetadata
+
     assert RCANConfig is not None
     assert RCANMetadata is not None

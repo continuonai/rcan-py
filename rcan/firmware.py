@@ -19,7 +19,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -124,7 +124,9 @@ class FirmwareManifest:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FirmwareManifest":
-        components = [FirmwareComponent.from_dict(c) for c in data.get("components", [])]
+        components = [
+            FirmwareComponent.from_dict(c) for c in data.get("components", [])
+        ]
         return cls(
             rrn=data["rrn"],
             firmware_version=data["firmware_version"],
@@ -144,7 +146,9 @@ class FirmwareManifest:
 # ---------------------------------------------------------------------------
 
 
-def sign_manifest(manifest: FirmwareManifest, private_key_bytes: bytes) -> FirmwareManifest:
+def sign_manifest(
+    manifest: FirmwareManifest, private_key_bytes: bytes
+) -> FirmwareManifest:
     """Sign *manifest* with an Ed25519 private key.
 
     Sets ``signed_at`` to the current UTC time and ``signature`` to the
@@ -189,8 +193,8 @@ def verify_manifest(manifest: FirmwareManifest, public_key_bytes: bytes) -> bool
         ImportError: If ``cryptography`` package is not installed.
     """
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError as exc:
         raise ImportError(
             "Install 'cryptography' to verify firmware manifests: pip install cryptography"

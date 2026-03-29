@@ -19,7 +19,6 @@ from typing import ClassVar
 
 from rcan.exceptions import RCANAddressError
 
-
 # Allowed characters in URI path segments
 _SEGMENT_RE = re.compile(r"^[a-zA-Z0-9._\-]+$")
 _URI_RE = re.compile(
@@ -132,7 +131,6 @@ class RobotURI:
             device_id=device_id,
         )
 
-
     # ------------------------------------------------------------------
     # v2.1 — Signed RURI
     # ------------------------------------------------------------------
@@ -158,13 +156,16 @@ class RobotURI:
             ImportError: If ``cryptography`` package is not installed.
         """
         try:
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                Ed25519PrivateKey,
+            )
         except ImportError as exc:
             raise ImportError(
                 "Install 'cryptography' to sign RURIs: pip install cryptography"
             ) from exc
 
         import base64
+
         private_key = Ed25519PrivateKey.from_private_bytes(private_key_bytes)
         sig_bytes = private_key.sign(self.path.encode())
         sig_b64 = base64.urlsafe_b64encode(sig_bytes).rstrip(b"=").decode()
@@ -185,21 +186,24 @@ class RobotURI:
             ImportError: If ``cryptography`` is not installed.
         """
         try:
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
             from cryptography.exceptions import InvalidSignature
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                Ed25519PublicKey,
+            )
         except ImportError as exc:
-            raise ImportError("Install 'cryptography' to verify RURIs: pip install cryptography") from exc
+            raise ImportError(
+                "Install 'cryptography' to verify RURIs: pip install cryptography"
+            ) from exc
 
         import base64
+
         try:
             sig_bytes = base64.urlsafe_b64decode(sig_b64 + "==")
             pub_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
             pub_key.verify(sig_bytes, self.path.encode())
             return True
         except InvalidSignature as exc:
-            raise RCANAddressError(
-                f"RURI_SIGNATURE_INVALID for {self!r}"
-            ) from exc
+            raise RCANAddressError(f"RURI_SIGNATURE_INVALID for {self!r}") from exc
 
     @classmethod
     def parse_signed(cls, uri: str) -> tuple["RobotURI", str | None]:

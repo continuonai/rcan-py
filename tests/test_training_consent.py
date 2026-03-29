@@ -6,15 +6,15 @@ import time
 
 import pytest
 
+from rcan.message import MessageType, RCANMessage
 from rcan.training_consent import (
+    EU_AI_ACT_ARTICLE,
     DataCategory,
     TrainingConsentRequest,
-    make_training_consent_request,
-    make_training_consent_grant,
     make_training_consent_deny,
-    EU_AI_ACT_ARTICLE,
+    make_training_consent_grant,
+    make_training_consent_request,
 )
-from rcan.message import RCANMessage, MessageType
 
 
 class TestDataCategory:

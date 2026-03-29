@@ -191,7 +191,9 @@ class RCANBOM:
         self.extensions = RCANSBOMExtensions(
             rrn=self.rrn,
             firmware_hash=firmware_hash,
-            attestation_signed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            attestation_signed_at=datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
             rrf_countersignature=rrf_countersignature,
         )
         return self

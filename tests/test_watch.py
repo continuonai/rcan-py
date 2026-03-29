@@ -5,9 +5,7 @@ from __future__ import annotations
 import os
 from unittest.mock import MagicMock, patch
 
-
-from rcan.validate import watch_file, ValidationResult
-
+from rcan.validate import ValidationResult, watch_file
 
 # ---------------------------------------------------------------------------
 # watch_file unit tests
