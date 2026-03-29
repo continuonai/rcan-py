@@ -6,8 +6,6 @@ import base64
 import json
 import time
 
-import pytest
-
 from rcan.identity import (
     DEFAULT_LOA_POLICY,
     PRODUCTION_LOA_POLICY,
@@ -25,7 +23,6 @@ from rcan.identity import (
     validate_role_for_scope,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -33,12 +30,14 @@ from rcan.identity import (
 
 def make_jwt(payload: dict) -> str:
     """Build a minimal unsigned JWT for testing."""
-    header = base64.urlsafe_b64encode(
-        json.dumps({"alg": "EdDSA", "typ": "JWT"}).encode()
-    ).rstrip(b"=").decode()
-    payload_b64 = base64.urlsafe_b64encode(
-        json.dumps(payload).encode()
-    ).rstrip(b"=").decode()
+    header = (
+        base64.urlsafe_b64encode(json.dumps({"alg": "EdDSA", "typ": "JWT"}).encode())
+        .rstrip(b"=")
+        .decode()
+    )
+    payload_b64 = (
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
+    )
     return f"{header}.{payload_b64}.fakesig"
 
 
@@ -83,7 +82,9 @@ class TestRole:
 class TestRoleJwtLevelMapping:
     def test_all_roles_have_jwt_levels(self):
         for role in Role:
-            assert role in ROLE_TO_JWT_LEVEL, f"Role.{role.name} missing from ROLE_TO_JWT_LEVEL"
+            assert role in ROLE_TO_JWT_LEVEL, (
+                f"Role.{role.name} missing from ROLE_TO_JWT_LEVEL"
+            )
 
     def test_jwt_levels(self):
         assert ROLE_TO_JWT_LEVEL[Role.GUEST] == 1.0
@@ -221,12 +222,14 @@ class TestExtractRoleFromJwt:
         assert extract_loa_from_jwt(token) == Role.ADMIN
 
     def test_extract_identity_from_jwt(self):
-        token = make_jwt({
-            "sub": "RRN-000000000005",
-            "rcan_role": 4,
-            "rcan_scopes": ["control", "status"],
-            "peer_rrn": "RRN-000000000001",
-        })
+        token = make_jwt(
+            {
+                "sub": "RRN-000000000005",
+                "rcan_role": 4,
+                "rcan_scopes": ["control", "status"],
+                "peer_rrn": "RRN-000000000001",
+            }
+        )
         identity = extract_identity_from_jwt(token)
         assert identity.sub == "RRN-000000000005"
         assert identity.role == Role.M2M_PEER

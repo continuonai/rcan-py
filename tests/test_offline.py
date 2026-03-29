@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
-from rcan.offline import OfflineModeManager, OfflineStatus
 from rcan.message import RCANMessage
+from rcan.offline import OfflineModeManager, OfflineStatus
 
 TARGET = "rcan://registry.rcan.dev/acme/arm/v1/unit-001"
 OWNER_A = "user://alice"
@@ -26,7 +24,9 @@ class TestOfflineStatus:
 
     def test_offline_status(self):
         since = time.time() - 100
-        status = OfflineStatus(is_offline=True, offline_since=since, grace_remaining_s=3500)
+        status = OfflineStatus(
+            is_offline=True, offline_since=since, grace_remaining_s=3500
+        )
         assert status.is_offline is True
         assert status.elapsed_offline_s >= 100
 

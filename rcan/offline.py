@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -95,9 +95,7 @@ class OfflineModeManager:
         """Mark the robot as back online."""
         if self._offline_since is not None:
             elapsed = time.time() - self._offline_since
-            logger.info(
-                "OfflineModeManager: back online after %.1f seconds", elapsed
-            )
+            logger.info("OfflineModeManager: back online after %.1f seconds", elapsed)
             self._offline_since = None
 
     def register_owner(self, owner_id: str) -> None:
@@ -107,7 +105,9 @@ class OfflineModeManager:
     def get_status(self) -> OfflineStatus:
         """Return current offline status."""
         if not self.is_offline:
-            return OfflineStatus(is_offline=False, grace_remaining_s=self.cross_owner_grace_s)
+            return OfflineStatus(
+                is_offline=False, grace_remaining_s=self.cross_owner_grace_s
+            )
 
         elapsed = time.time() - self._offline_since  # type: ignore[operator]
         grace_remaining = max(0.0, self.cross_owner_grace_s - elapsed)

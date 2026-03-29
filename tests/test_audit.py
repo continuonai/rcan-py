@@ -1,7 +1,7 @@
 """Tests for rcan.audit — CommitmentRecord and AuditChain."""
 
 import json
-import pytest
+
 from rcan import CommitmentRecord
 from rcan.audit import AuditChain
 
@@ -9,7 +9,9 @@ SECRET = b"test-secret-key"
 
 
 def make_record(action: str = "move_forward", **kwargs) -> CommitmentRecord:
-    return CommitmentRecord(action=action, robot_uri="rcan://r.rcan.dev/a/b/v1/x", **kwargs)
+    return CommitmentRecord(
+        action=action, robot_uri="rcan://r.rcan.dev/a/b/v1/x", **kwargs
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +145,9 @@ def test_chain_iter():
 
 import os
 import tempfile
-from rcan.validate import validate_audit_chain, main as validate_main
+
+from rcan.validate import main as validate_main
+from rcan.validate import validate_audit_chain
 
 
 def build_valid_jsonl(secret: bytes = SECRET, n: int = 3) -> str:
@@ -163,7 +167,9 @@ def test_validate_audit_chain_valid():
     try:
         result = validate_audit_chain(path, secret=SECRET.decode())
         assert result.ok, result.issues
-        assert any("valid" in msg.lower() or "intact" in msg.lower() for msg in result.info)
+        assert any(
+            "valid" in msg.lower() or "intact" in msg.lower() for msg in result.info
+        )
     finally:
         os.unlink(path)
 
@@ -177,7 +183,9 @@ def test_validate_audit_chain_wrong_secret():
     try:
         result = validate_audit_chain(path, secret="wrong-secret")
         assert not result.ok
-        assert any("HMAC" in issue or "invalid" in issue.lower() for issue in result.issues)
+        assert any(
+            "HMAC" in issue or "invalid" in issue.lower() for issue in result.issues
+        )
     finally:
         os.unlink(path)
 
@@ -223,7 +231,10 @@ def test_validate_audit_chain_file_not_found():
     """validate_audit_chain returns failure for missing file."""
     result = validate_audit_chain("/nonexistent/path/audit.jsonl")
     assert not result.ok
-    assert any("not found" in issue.lower() or "File not found" in issue for issue in result.issues)
+    assert any(
+        "not found" in issue.lower() or "File not found" in issue
+        for issue in result.issues
+    )
 
 
 def test_validate_audit_chain_empty_file():

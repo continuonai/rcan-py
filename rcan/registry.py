@@ -34,9 +34,8 @@ from typing import Any
 
 from rcan.address import RobotURI
 from rcan.exceptions import RCANRegistryError, RCANTimeoutError
-from rcan.version import SPEC_VERSION
 from rcan.message import SPEC_VERSION
-
+from rcan.version import SPEC_VERSION
 
 
 def _run_sync(coro):  # type: ignore[no-untyped-def]
@@ -47,6 +46,7 @@ def _run_sync(coro):  # type: ignore[no-untyped-def]
       when available, otherwise raises a clear ``RuntimeError`` with instructions.
     """
     import asyncio as _asyncio
+
     try:
         loop = _asyncio.get_running_loop()
     except RuntimeError:
@@ -57,8 +57,10 @@ def _run_sync(coro):  # type: ignore[no-untyped-def]
 
     # Inside a running loop — try anyio
     try:
-        import anyio.from_thread as _aft
         import concurrent.futures as _cf
+
+        import anyio.from_thread as _aft
+
         with _cf.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(_asyncio.run, coro)
             return future.result(timeout=30)
@@ -69,6 +71,7 @@ def _run_sync(coro):  # type: ignore[no-untyped-def]
         "Cannot call a sync wrapper from inside a running event loop without anyio. "
         "Use `await client.get_robot(rrn)` instead, or install anyio: pip install anyio"
     )
+
 
 DEFAULT_BASE_URL = "https://rcan.dev"
 DEFAULT_TIMEOUT = 10.0
@@ -160,7 +163,11 @@ class RegistryClient:
         """
         params = {
             k: v
-            for k, v in {"manufacturer": manufacturer, "model": model, "tier": tier}.items()
+            for k, v in {
+                "manufacturer": manufacturer,
+                "model": model,
+                "tier": tier,
+            }.items()
             if v
         }
         data = await self._get("/api/v1/robots/search", params=params)
@@ -230,11 +237,13 @@ class RegistryClient:
     def get_robot_sync(self, rrn: str) -> "RegistryEntry":
         """Synchronous wrapper around :meth:`get_robot`."""
         import asyncio
+
         return asyncio.run(self.get_robot(rrn))
 
     def register_sync(self, **kwargs: Any) -> dict[str, Any]:
         """Synchronous wrapper around :meth:`register`."""
         import asyncio
+
         return asyncio.run(self.register(**kwargs))
 
     # ------------------------------------------------------------------
@@ -390,7 +399,10 @@ class RegistryPage:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RegistryPage":
-        entries = [RegistryEntry.from_dict(r) for r in data.get("robots", data.get("results", []))]
+        entries = [
+            RegistryEntry.from_dict(r)
+            for r in data.get("robots", data.get("results", []))
+        ]
         return cls(entries, data.get("meta", {}))
 
     @property

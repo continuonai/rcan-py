@@ -6,6 +6,7 @@ MCP servers and validating MCP client configurations.
 These types are provider-agnostic: the LoA is tied to the token, not the
 model or AI provider.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,12 +14,11 @@ import secrets
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # LoA → RCAN scope/role mapping (RCAN v2.2 §22.4)
 LOA_TO_SCOPE: dict[int, list[str]] = {
-    0: ["discover", "status", "transparency"],   # read-only
-    1: ["chat", "control", "system"],            # operate
-    3: ["system", "safety"],                     # admin / M2M_TRUSTED
+    0: ["discover", "status", "transparency"],  # read-only
+    1: ["chat", "control", "system"],  # operate
+    3: ["system", "safety"],  # admin / M2M_TRUSTED
 }
 
 TOOL_LOA_REQUIREMENTS: dict[str, int] = {
@@ -57,8 +57,8 @@ class McpClientConfig:
     """
 
     name: str
-    token_hash: str   # "sha256:<hex>" — never the raw token
-    loa: int          # 0, 1, or 3
+    token_hash: str  # "sha256:<hex>" — never the raw token
+    loa: int  # 0, 1, or 3
 
     def allows_tool(self, tool_name: str) -> bool:
         """Return True if this client's LoA satisfies the tool's requirement."""
@@ -105,7 +105,5 @@ class McpServerConfig:
     def from_rcan_config(cls, cfg: dict[str, Any]) -> "McpServerConfig":
         """Build from a loaded RCAN yaml dict."""
         rrn = cfg.get("rrn", "")
-        clients = [
-            McpClientConfig.from_dict(c) for c in cfg.get("mcp_clients", [])
-        ]
+        clients = [McpClientConfig.from_dict(c) for c in cfg.get("mcp_clients", [])]
         return cls(rrn=rrn, clients=clients)

@@ -12,10 +12,8 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
-
-from rcan.exceptions import RevocationError
 
 logger = logging.getLogger(__name__)
 
@@ -138,8 +136,8 @@ def check_revocation(rrn: str, registry_url: str) -> RevocationStatus:
         :class:`RevocationStatus`.
     """
     try:
-        import urllib.request
         import json
+        import urllib.request
 
         url = f"{registry_url.rstrip('/')}/api/v1/robots/{rrn}/revocation-status"
         req = urllib.request.Request(url, headers={"Accept": "application/json"})

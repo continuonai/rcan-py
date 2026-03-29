@@ -18,7 +18,7 @@ import json
 import logging
 import struct
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 # Try msgpack (optional dependency)
 try:
     import msgpack  # type: ignore[import]
+
     _MSGPACK_AVAILABLE = True
 except ImportError:
     _MSGPACK_AVAILABLE = False
@@ -50,10 +51,10 @@ class TransportError(Exception):
 class TransportEncoding(str, Enum):
     """Available transport encodings, ordered roughly by capability."""
 
-    HTTP = "http"        # Full JSON over HTTP — highest fidelity
+    HTTP = "http"  # Full JSON over HTTP — highest fidelity
     COMPACT = "compact"  # msgpack/JSON with abbreviated field names
     MINIMAL = "minimal"  # 32-byte ESTOP-only binary format
-    BLE = "ble"          # MTU-fragmented BLE frames
+    BLE = "ble"  # MTU-fragmented BLE frames
 
 
 @dataclass
@@ -75,7 +76,7 @@ class TransportNegotiation:
 
 # Full name → abbreviated key
 _COMPACT_FIELD_MAP: dict[str, str] = {
-    "cmd": "t",          # treat cmd as msg_type abbreviation in compact form
+    "cmd": "t",  # treat cmd as msg_type abbreviation in compact form
     "msg_id": "i",
     "timestamp": "ts",
     "sender": "f",
@@ -217,12 +218,16 @@ def decode_compact(data: bytes) -> Any:
         else:
             d = json.loads(data.decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
-        raise TransportError(f"decode_compact: failed to deserialise data: {exc}") from exc
+        raise TransportError(
+            f"decode_compact: failed to deserialise data: {exc}"
+        ) from exc
 
     try:
         return _from_compact_dict(d)
     except Exception as exc:  # noqa: BLE001
-        raise TransportError(f"decode_compact: failed to reconstruct RCANMessage: {exc}") from exc
+        raise TransportError(
+            f"decode_compact: failed to reconstruct RCANMessage: {exc}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +245,14 @@ def _rrn_hash(rrn: Optional[str]) -> bytes:
 def _is_safety_message(message: Any) -> bool:
     """Return True if *message* is a SAFETY / ESTOP message."""
     cmd_upper = (message.cmd or "").upper()
-    return cmd_upper in {"ESTOP", "E_STOP", "EMERGENCY_STOP", "STOP", "RESUME", "SAFETY"}
+    return cmd_upper in {
+        "ESTOP",
+        "E_STOP",
+        "EMERGENCY_STOP",
+        "STOP",
+        "RESUME",
+        "SAFETY",
+    }
 
 
 def encode_minimal(message: Any, *, shared_secret: bytes | None = None) -> bytes:
@@ -279,14 +291,15 @@ def encode_minimal(message: Any, *, shared_secret: bytes | None = None) -> bytes
     to_rrn = str(message.target)
     ts_int = int(message.timestamp)
 
-    from_hash = _rrn_hash(from_rrn)   # 8 bytes
-    to_hash = _rrn_hash(to_rrn)       # 8 bytes
+    from_hash = _rrn_hash(from_rrn)  # 8 bytes
+    to_hash = _rrn_hash(to_rrn)  # 8 bytes
 
     # HMAC-SHA256 over from_hash+to_hash+ts using shared_secret as key
     if shared_secret is not None:
         key_bytes = shared_secret
     else:
         import warnings
+
         warnings.warn(
             "encode_minimal: using msg_id as HMAC key is deprecated and insecure. "
             "Pass shared_secret instead.",
@@ -301,10 +314,10 @@ def encode_minimal(message: Any, *, shared_secret: bytes | None = None) -> bytes
     # Pack first 38 bytes
     packed_38 = (
         struct.pack("<H", msg_type_int)  # 2B
-        + from_hash                       # 8B
-        + to_hash                         # 8B
-        + struct.pack("<I", ts_int)       # 4B
-        + sig_truncated                   # 16B
+        + from_hash  # 8B
+        + to_hash  # 8B
+        + struct.pack("<I", ts_int)  # 4B
+        + sig_truncated  # 16B
     )
     assert len(packed_38) == 38
 
@@ -350,9 +363,13 @@ def decode_minimal(data: bytes, *, shared_secret: bytes | None = None) -> dict:
         word = struct.unpack_from("<H", data, i)[0]
         xor_val ^= word
     stored_checksum = struct.unpack_from("<H", data, 38)[0]
-    checksum_ok = (xor_val == stored_checksum)
+    checksum_ok = xor_val == stored_checksum
     if not checksum_ok:
-        log.warning("decode_minimal: checksum mismatch (computed=%04x, stored=%04x)", xor_val, stored_checksum)
+        log.warning(
+            "decode_minimal: checksum mismatch (computed=%04x, stored=%04x)",
+            xor_val,
+            stored_checksum,
+        )
 
     msg_type = struct.unpack_from("<H", data, 0)[0]
     from_rrn_hash = data[2:10]
@@ -406,16 +423,14 @@ def encode_ble_frame(message: Any, mtu: int = 251) -> list[bytes]:
     # Derive a 4-byte stream ID from msg_id
     stream_hash = hashlib.sha256(message.msg_id.encode()).digest()[:4]
 
-    chunks = [payload[i:i + chunk_size] for i in range(0, max(len(payload), 1), chunk_size)]
+    chunks = [
+        payload[i : i + chunk_size] for i in range(0, max(len(payload), 1), chunk_size)
+    ]
     total_frames = len(chunks)
 
     frames = []
     for idx, chunk in enumerate(chunks):
-        header = (
-            stream_hash
-            + struct.pack("<H", total_frames)
-            + struct.pack("<H", idx)
-        )
+        header = stream_hash + struct.pack("<H", total_frames) + struct.pack("<H", idx)
         frames.append(header + chunk)
 
     log.debug(
@@ -462,7 +477,9 @@ def decode_ble_frames(frames: list[bytes]) -> Any:
             stream_hash = sh
             total_frames = tf
         elif sh != stream_hash:
-            log.warning("decode_ble_frames: stream_hash mismatch on frame %d; ignoring", i)
+            log.warning(
+                "decode_ble_frames: stream_hash mismatch on frame %d; ignoring", i
+            )
             continue
 
         parsed.append((fi, chunk))
@@ -525,9 +542,7 @@ def select_transport(
             TransportEncoding.HTTP,
         ]:
             if preferred in avail_set:
-                log.debug(
-                    "select_transport: safety message → selected %s", preferred
-                )
+                log.debug("select_transport: safety message → selected %s", preferred)
                 return preferred
     else:
         # General preference: HTTP → COMPACT → BLE → MINIMAL

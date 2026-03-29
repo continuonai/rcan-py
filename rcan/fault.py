@@ -13,7 +13,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,11 @@ class FaultReport:
     reported_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
-        code = self.fault_code.value if isinstance(self.fault_code, FaultCode) else str(self.fault_code)
+        code = (
+            self.fault_code.value
+            if isinstance(self.fault_code, FaultCode)
+            else str(self.fault_code)
+        )
         return {
             "fault_id": self.fault_id,
             "fault_code": code,

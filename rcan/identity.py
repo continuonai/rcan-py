@@ -53,23 +53,23 @@ class Role(IntEnum):
         M2M_TRUSTED  → 6  (RRF-issued only)
     """
 
-    GUEST       = 1
-    OPERATOR    = 2
-    CONTRIBUTOR = 3   # JWT level 2.5 — scoped to fleet.contribute only
-    ADMIN       = 4   # JWT level 3
-    M2M_PEER    = 5   # JWT level 4 — authorized by ADMIN
-    CREATOR     = 6   # JWT level 5 — full hardware control
-    M2M_TRUSTED = 7   # JWT level 6 — RRF-issued, fleet orchestration
+    GUEST = 1
+    OPERATOR = 2
+    CONTRIBUTOR = 3  # JWT level 2.5 — scoped to fleet.contribute only
+    ADMIN = 4  # JWT level 3
+    M2M_PEER = 5  # JWT level 4 — authorized by ADMIN
+    CREATOR = 6  # JWT level 5 — full hardware control
+    M2M_TRUSTED = 7  # JWT level 6 — RRF-issued, fleet orchestration
 
 
 # Map Role → JWT ``rcan_role`` level (float to accommodate 2.5)
 ROLE_TO_JWT_LEVEL: dict[Role, float] = {
-    Role.GUEST:       1.0,
-    Role.OPERATOR:    2.0,
+    Role.GUEST: 1.0,
+    Role.OPERATOR: 2.0,
     Role.CONTRIBUTOR: 2.5,
-    Role.ADMIN:       3.0,
-    Role.M2M_PEER:    4.0,
-    Role.CREATOR:     5.0,
+    Role.ADMIN: 3.0,
+    Role.M2M_PEER: 4.0,
+    Role.CREATOR: 5.0,
     Role.M2M_TRUSTED: 6.0,
 }
 
@@ -96,20 +96,20 @@ LevelOfAssurance = Role  # type: ignore[assignment]
 
 #: Minimum role required per scope.
 SCOPE_MIN_ROLE: dict[str, Role] = {
-    "status":        Role.GUEST,
-    "discover":      Role.GUEST,
-    "chat":          Role.GUEST,
-    "observer":      Role.GUEST,
-    "contribute":    Role.CONTRIBUTOR,
-    "control":       Role.OPERATOR,
-    "teleop":        Role.OPERATOR,
-    "training":      Role.ADMIN,
+    "status": Role.GUEST,
+    "discover": Role.GUEST,
+    "chat": Role.GUEST,
+    "observer": Role.GUEST,
+    "contribute": Role.CONTRIBUTOR,
+    "control": Role.OPERATOR,
+    "teleop": Role.OPERATOR,
+    "training": Role.ADMIN,
     "training_data": Role.ADMIN,
-    "config":        Role.ADMIN,
-    "authority":     Role.ADMIN,
-    "admin":         Role.CREATOR,
-    "safety":        Role.CREATOR,
-    "estop":         Role.CREATOR,
+    "config": Role.ADMIN,
+    "authority": Role.ADMIN,
+    "admin": Role.CREATOR,
+    "safety": Role.CREATOR,
+    "estop": Role.CREATOR,
     "fleet.trusted": Role.M2M_TRUSTED,
 }
 
@@ -190,10 +190,10 @@ class LoaPolicy:
     """
 
     min_role_for_discover: Role = Role.GUEST
-    min_role_for_status:   Role = Role.GUEST
-    min_role_for_chat:     Role = Role.GUEST
-    min_role_for_control:  Role = Role.GUEST
-    min_role_for_safety:   Role = Role.GUEST
+    min_role_for_status: Role = Role.GUEST
+    min_role_for_chat: Role = Role.GUEST
+    min_role_for_control: Role = Role.GUEST
+    min_role_for_safety: Role = Role.GUEST
 
 
 DEFAULT_LOA_POLICY: LoaPolicy = LoaPolicy()
@@ -292,7 +292,10 @@ def validate_role_for_scope(
     if required is None:
         # Unknown scope — apply OPERATOR as a safe default
         required = Role.OPERATOR
-        log.debug("validate_role_for_scope: unknown scope %r; applying OPERATOR minimum", scope)
+        log.debug(
+            "validate_role_for_scope: unknown scope %r; applying OPERATOR minimum",
+            scope,
+        )
 
     if role >= required:
         return True, ""

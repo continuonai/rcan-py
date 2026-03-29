@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import struct
-import time
 
 import pytest
 
@@ -122,6 +121,7 @@ class TestCompactEncoding:
     def test_compact_smaller_than_json(self):
         """Compact encoding should generally be smaller than standard JSON."""
         import json as _json
+
         msg = make_msg(cmd="status_request")
         compact = encode_compact(msg)
         full_json = _json.dumps(msg.to_dict()).encode()
@@ -231,15 +231,14 @@ class TestMinimalEncoding:
 
     def test_from_rrn_hash_reflects_sender(self):
         """Different senders should produce different from_rrn_hash values."""
-        import hashlib
-        msg1 = RCANMessage(
-            cmd="ESTOP", target=ESTOP_TARGET, sender="RRN-000000000001"
+        msg1 = RCANMessage(cmd="ESTOP", target=ESTOP_TARGET, sender="RRN-000000000001")
+        msg2 = RCANMessage(cmd="ESTOP", target=ESTOP_TARGET, sender="RRN-000000000002")
+        r1 = decode_minimal(
+            encode_minimal(msg1, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET
         )
-        msg2 = RCANMessage(
-            cmd="ESTOP", target=ESTOP_TARGET, sender="RRN-000000000002"
+        r2 = decode_minimal(
+            encode_minimal(msg2, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET
         )
-        r1 = decode_minimal(encode_minimal(msg1, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET)
-        r2 = decode_minimal(encode_minimal(msg2, shared_secret=TEST_SECRET), shared_secret=TEST_SECRET)
         assert r1["from_rrn_hash"] != r2["from_rrn_hash"]
 
     def test_layout_bytes_positions(self):
@@ -329,7 +328,6 @@ class TestBleEncoding:
 
     def test_frame_count_matches_payload(self):
         """Frame count should match ceiling(payload_size / chunk_size)."""
-        import math
         msg = RCANMessage(cmd="count_test", target=TARGET, params={"x": "y" * 100})
         mtu = 32  # small MTU
         frames = encode_ble_frame(msg, mtu=mtu)

@@ -1,7 +1,7 @@
 """Tests for rcan-validate config --strict mode (Issue #18)."""
 
-import tempfile
 import os
+import tempfile
 
 from rcan.validate import validate_config
 

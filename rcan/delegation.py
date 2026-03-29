@@ -19,8 +19,6 @@ from typing import Any, Callable, Optional
 
 from rcan.exceptions import (
     DelegationChainExceededError,
-    DelegationVerificationError,
-    RCANValidationError,
 )
 
 logger = logging.getLogger(__name__)
@@ -182,7 +180,9 @@ def validate_delegation_chain(
             return False, f"Delegation hop {i} is not a valid DelegationHop"
 
         if not hop.signature:
-            logger.warning("Delegation hop %d has no signature — skipping verification", i)
+            logger.warning(
+                "Delegation hop %d has no signature — skipping verification", i
+            )
             continue
 
         # Resolve public key for this issuer
@@ -197,9 +197,7 @@ def validate_delegation_chain(
             raw_sig = base64.urlsafe_b64decode(hop.signature + "==")
             keypair.verify_bytes(hop.canonical_bytes(), raw_sig)
         except Exception as exc:
-            return False, (
-                f"Delegation hop {i} signature verification failed: {exc}"
-            )
+            return False, (f"Delegation hop {i} signature verification failed: {exc}")
 
     return True, ""
 

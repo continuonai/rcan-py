@@ -40,7 +40,6 @@ from typing import Any
 
 from rcan.exceptions import RCANSignatureError
 
-
 # ---------------------------------------------------------------------------
 # ML-DSA-65 (FIPS 204) — the only signing algorithm
 # ---------------------------------------------------------------------------
@@ -103,7 +102,9 @@ class MLDSAKeyPair:
         public key bytes, then private key bytes.
         """
         if self._secret_key is None:
-            raise RCANSignatureError("Cannot save: public-only MLDSAKeyPair has no private key")
+            raise RCANSignatureError(
+                "Cannot save: public-only MLDSAKeyPair has no private key"
+            )
         path = Path(path).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
         pk_len = len(self.public_key).to_bytes(2, "big")
@@ -124,7 +125,9 @@ class MLDSAKeyPair:
         """Load an ML-DSA-65 key pair from a file saved by :meth:`save`."""
         data = Path(path).expanduser().read_bytes()
         if data[:4] != b"MLDS":
-            raise RCANSignatureError("Not a valid MLDSAKeyPair file (missing MLDS magic)")
+            raise RCANSignatureError(
+                "Not a valid MLDSAKeyPair file (missing MLDS magic)"
+            )
         pk_len = int.from_bytes(data[4:6], "big")
         pk = data[6 : 6 + pk_len]
         sk = data[6 + pk_len :]
@@ -287,6 +290,7 @@ class KeyPair:
     def generate(cls) -> "MLDSAKeyPair":
         """Redirects to MLDSAKeyPair.generate()."""
         import warnings
+
         warnings.warn(
             "KeyPair.generate() is deprecated — use MLDSAKeyPair.generate()",
             DeprecationWarning,

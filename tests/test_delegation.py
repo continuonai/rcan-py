@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import time
-from unittest.mock import MagicMock
-
 import pytest
 
 from rcan.delegation import (
+    MAX_DELEGATION_DEPTH,
     DelegationHop,
     add_delegation_hop,
     validate_delegation_chain,
-    MAX_DELEGATION_DEPTH,
 )
 from rcan.exceptions import DelegationChainExceededError
 from rcan.message import RCANMessage
@@ -145,11 +142,13 @@ class TestValidateDelegationChain:
         msg = make_msg()
         # Manually stuff the chain beyond the limit
         for i in range(5):
-            msg.delegation_chain.append(DelegationHop(
-                issuer_ruri=f"ruri-{i}",
-                human_subject=HUMAN_A,
-                scope="teleop",
-            ))
+            msg.delegation_chain.append(
+                DelegationHop(
+                    issuer_ruri=f"ruri-{i}",
+                    human_subject=HUMAN_A,
+                    scope="teleop",
+                )
+            )
         valid, reason = validate_delegation_chain(msg, lambda ruri: None)
         assert valid is False
         assert "depth" in reason.lower() or "exceed" in reason.lower()

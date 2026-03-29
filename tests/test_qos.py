@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from rcan.qos import QoSLevel, QoSManager, make_estop_with_qos
 from rcan.exceptions import QoSAckTimeoutError, SafetyHaltError
 from rcan.message import RCANMessage
+from rcan.qos import QoSLevel, QoSManager, make_estop_with_qos
 
 TARGET = "rcan://registry.rcan.dev/acme/arm/v1/unit-001"
 
@@ -100,9 +99,7 @@ class TestQoSManager:
 
 class TestMakeEstopWithQoS:
     def test_estop_has_qos_2(self):
-        msg = make_estop_with_qos(
-            ruri=TARGET, reason="Test emergency stop"
-        )
+        msg = make_estop_with_qos(ruri=TARGET, reason="Test emergency stop")
         assert msg.qos == int(QoSLevel.EXACTLY_ONCE)
 
     def test_estop_cmd(self):
@@ -117,10 +114,12 @@ class TestMakeEstopWithQoS:
 class TestMessageTypeAdditions:
     def test_command_nack_in_message_type(self):
         from rcan.message import MessageType
+
         assert hasattr(MessageType, "COMMAND_NACK")
         assert MessageType.COMMAND_NACK == 18
 
     def test_command_ack_in_message_type(self):
         from rcan.message import MessageType
+
         assert hasattr(MessageType, "COMMAND_ACK")
         assert MessageType.COMMAND_ACK == 17

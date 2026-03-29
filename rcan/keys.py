@@ -143,7 +143,9 @@ class KeyStore:
             logger.warning("KeyStore: expire_key: key_id=%s not found", key_id)
             return
         entry.valid_until = expire_at if expire_at is not None else time.time()
-        logger.info("KeyStore: key_id=%s set to expire at %s", key_id, entry.valid_until)
+        logger.info(
+            "KeyStore: key_id=%s set to expire at %s", key_id, entry.valid_until
+        )
 
     def revoke_key(self, key_id: str) -> None:
         """Immediately revoke a key.

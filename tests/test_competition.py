@@ -1,6 +1,7 @@
 """Tests for rcan.competition — competition protocol messages (v1.10)."""
 
 import time
+
 import pytest
 
 from rcan.competition import (

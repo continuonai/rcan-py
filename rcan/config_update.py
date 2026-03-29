@@ -12,10 +12,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from rcan.exceptions import ConfigAuthorizationError, ConfigHashMismatchError, RCANValidationError
+from rcan.exceptions import (
+    ConfigAuthorizationError,
+)
 
 logger = logging.getLogger(__name__)
 

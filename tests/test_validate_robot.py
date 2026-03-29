@@ -1,10 +1,9 @@
 """Tests for rcan-validate robot <rrn> subcommand (Issue #17)."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from rcan.validate import validate_robot
 from rcan.exceptions import RCANNodeError
-
+from rcan.validate import validate_robot
 
 VALID_RECORD = {
     "record": {

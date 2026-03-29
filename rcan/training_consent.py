@@ -16,8 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
-from rcan.exceptions import ConsentError
-
 logger = logging.getLogger(__name__)
 
 # EU AI Act Article reference for training data consent

@@ -10,7 +10,10 @@ from __future__ import annotations
 import pytest
 
 try:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # noqa: F401
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+        Ed25519PrivateKey,  # noqa: F401
+    )
+
     HAS_CRYPTO = True
 except ImportError:
     HAS_CRYPTO = False
@@ -124,8 +127,9 @@ def test_keypair_deprecated():
 
 
 def test_keypair_generate_redirects():
-    from rcan.signing import KeyPair
     import warnings
+
+    from rcan.signing import KeyPair
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")

@@ -5,17 +5,13 @@ from __future__ import annotations
 import base64
 import json
 import time
-import uuid
-
-import pytest
 
 from rcan.federation import (
-    FederationSyncType,
     FederationSyncPayload,
+    FederationSyncType,
     RegistryIdentity,
     RegistryTier,
     TrustAnchorCache,
-    TRUST_ANCHOR_TTL_S,
     make_federation_sync,
     validate_cross_registry_command,
 )
@@ -91,13 +87,15 @@ class TestFederationSyncPayload:
         assert d["payload"]["consent_id"] == "abc-123"
 
     def test_from_dict(self):
-        p = FederationSyncPayload.from_dict({
-            "source_registry": REGISTRY_A,
-            "target_registry": REGISTRY_B,
-            "sync_type": "revocation",
-            "payload": {"rrn": "RRN-0001"},
-            "signature": "",
-        })
+        p = FederationSyncPayload.from_dict(
+            {
+                "source_registry": REGISTRY_A,
+                "target_registry": REGISTRY_B,
+                "sync_type": "revocation",
+                "payload": {"rrn": "RRN-0001"},
+                "signature": "",
+            }
+        )
         assert p.sync_type == FederationSyncType.REVOCATION
         assert p.payload["rrn"] == "RRN-0001"
 
@@ -154,6 +152,7 @@ class TestTrustAnchorCache:
     def test_discover_via_dns_no_dnspython(self, monkeypatch):
         """discover_via_dns should return None gracefully when dnspython is unavailable."""
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -175,25 +174,35 @@ class TestTrustAnchorCache:
 class TestVerifyRegistryJwt:
     def _make_jwt(self, payload: dict) -> str:
         """Build an unsigned JWT for testing (signature is placeholder)."""
-        header = base64.urlsafe_b64encode(
-            json.dumps({"alg": "EdDSA", "typ": "JWT"}).encode()
-        ).rstrip(b"=").decode()
-        payload_b64 = base64.urlsafe_b64encode(
-            json.dumps(payload).encode()
-        ).rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(
+                json.dumps({"alg": "EdDSA", "typ": "JWT"}).encode()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
+        payload_b64 = (
+            base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
+        )
         return f"{header}.{payload_b64}.fakesig"
 
     def test_valid_jwt_no_public_key(self):
         """JWT with matching issuer and no public key in cache should pass with warning."""
         cache = TrustAnchorCache()
-        token = self._make_jwt({
-            "iss": REGISTRY_A,
-            "sub": "RRN-0001",
-            "exp": time.time() + 3600,
-        })
+        token = self._make_jwt(
+            {
+                "iss": REGISTRY_A,
+                "sub": "RRN-0001",
+                "exp": time.time() + 3600,
+            }
+        )
         valid, reason = cache.verify_registry_jwt(token, REGISTRY_A)
         assert valid
-        assert "trust cache" in reason.lower() or "no public key" in reason.lower() or "structurally" in reason.lower()
+        assert (
+            "trust cache" in reason.lower()
+            or "no public key" in reason.lower()
+            or "structurally" in reason.lower()
+        )
 
     def test_wrong_issuer(self):
         cache = TrustAnchorCache()
@@ -216,7 +225,9 @@ class TestVerifyRegistryJwt:
 
     def test_invalid_structure(self):
         cache = TrustAnchorCache()
-        valid, reason = cache.verify_registry_jwt("not.a.valid.jwt.structure.parts", REGISTRY_A)
+        valid, reason = cache.verify_registry_jwt(
+            "not.a.valid.jwt.structure.parts", REGISTRY_A
+        )
         # Still 3 parts: "not", "a", "valid.jwt.structure.parts" — let it parse
         # The important thing is it doesn't crash
         assert isinstance(valid, bool)
@@ -344,12 +355,14 @@ class TestValidateCrossRegistryCommand:
         """An invalid source registry JWT should block the command."""
         cache = TrustAnchorCache()
         # Populate cache with an identity (no real public key verification)
-        cache.store(RegistryIdentity(
-            registry_url=REGISTRY_B,
-            tier=RegistryTier.AUTHORITATIVE,
-            public_key_pem="",
-            domain="registry-b.example.com",
-        ))
+        cache.store(
+            RegistryIdentity(
+                registry_url=REGISTRY_B,
+                tier=RegistryTier.AUTHORITATIVE,
+                public_key_pem="",
+                domain="registry-b.example.com",
+            )
+        )
         # Craft a message with a JWT that has wrong issuer
         msg = RCANMessage(
             cmd="configure",

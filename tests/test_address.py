@@ -1,9 +1,9 @@
 """Tests for rcan.address.RobotURI."""
 
 import pytest
+
 from rcan import RobotURI
 from rcan.exceptions import RCANAddressError
-
 
 VALID_URI = "rcan://registry.rcan.dev/acme/robotarm/v2/unit-001"
 
@@ -60,7 +60,9 @@ def test_namespace():
 
 def test_registry_url():
     uri = RobotURI.parse(VALID_URI)
-    assert uri.registry_url.startswith("https://registry.rcan.dev/registry/acme/robotarm")
+    assert uri.registry_url.startswith(
+        "https://registry.rcan.dev/registry/acme/robotarm"
+    )
 
 
 def test_with_device():

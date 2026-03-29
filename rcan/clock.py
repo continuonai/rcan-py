@@ -58,7 +58,6 @@ def check_clock_sync() -> ClockSyncStatus:
 
 def _check_linux() -> ClockSyncStatus:
     """Linux-specific check via systemd-timesyncd or timedatectl."""
-    import os
     import pathlib
 
     # Method 1: check systemd timesync marker file
@@ -206,4 +205,9 @@ def assert_clock_synced(max_drift_s: float = _DEFAULT_MAX_DRIFT_S) -> ClockSyncS
     return status
 
 
-__all__ = ["ClockSyncStatus", "check_clock_sync", "assert_clock_synced", "ClockDriftError"]
+__all__ = [
+    "ClockSyncStatus",
+    "check_clock_sync",
+    "assert_clock_synced",
+    "ClockDriftError",
+]

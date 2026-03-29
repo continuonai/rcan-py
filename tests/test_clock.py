@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rcan.clock import ClockSyncStatus, check_clock_sync, assert_clock_synced
+from rcan.clock import ClockSyncStatus, assert_clock_synced, check_clock_sync
 from rcan.exceptions import ClockDriftError
 
 
@@ -34,7 +34,10 @@ class TestAssertClockSynced:
         with patch("rcan.clock.check_clock_sync", return_value=status):
             with pytest.raises(ClockDriftError) as exc_info:
                 assert_clock_synced(max_drift_s=5.0)
-            assert "not synchronized" in str(exc_info.value).lower() or "offset" in str(exc_info.value).lower()
+            assert (
+                "not synchronized" in str(exc_info.value).lower()
+                or "offset" in str(exc_info.value).lower()
+            )
 
     def test_large_offset_raises(self):
         """Offset > max_drift_s should raise even if synchronized=True."""
@@ -70,16 +73,20 @@ class TestCheckClockSync:
         mock_result.stdout = "NTPSynchronized=yes\nTimeUSec=1234567890\n"
         mock_result.returncode = 0
 
-        with patch("platform.system", return_value="Linux"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             status = check_clock_sync()
             assert isinstance(status, ClockSyncStatus)
 
     def test_linux_sync_file_path(self):
         """Test Linux sync marker file path."""
-        with patch("platform.system", return_value="Linux"), \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             status = check_clock_sync()
             assert status.synchronized is True
             assert "timesyncd" in status.source

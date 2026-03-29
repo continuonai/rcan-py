@@ -7,8 +7,6 @@ from __future__ import annotations
 import re
 import time
 
-import pytest
-
 from rcan.safety import (
     SAFETY_MESSAGE_TYPE,
     is_safety_message,
@@ -201,14 +199,17 @@ class TestMessageTypeEnum:
 
     def test_transparency_value(self):
         from rcan.message import MessageType
+
         assert MessageType.TRANSPARENCY == 16
 
     def test_safety_value(self):
         from rcan.message import MessageType
+
         assert MessageType.SAFETY == 6
 
     def test_command_value(self):
         from rcan.message import MessageType
+
         assert MessageType.COMMAND == 1
 
 
@@ -222,6 +223,7 @@ class TestMakeTransparencyMessage:
 
     def _valid_msg(self, **kwargs):
         from rcan.safety import make_transparency_message
+
         defaults = dict(
             source_ruri="rcan://rcan.dev/acme/arm/v1/unit-001",
             target_ruri="rcan://local/human-display",
@@ -274,6 +276,7 @@ class TestMakeTransparencyMessage:
 
     def test_message_id_uuid_format(self):
         import re
+
         msg = self._valid_msg()
         assert re.match(
             r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -282,10 +285,12 @@ class TestMakeTransparencyMessage:
 
     def test_passes_validate_message(self):
         from rcan.validate import validate_message
+
         msg = self._valid_msg()
         result = validate_message(msg)
         assert result.ok, f"validate_message rejected transparency msg: {result.issues}"
 
     def test_transparency_message_type_constant(self):
         from rcan.safety import TRANSPARENCY_MESSAGE_TYPE
+
         assert TRANSPARENCY_MESSAGE_TYPE == 18

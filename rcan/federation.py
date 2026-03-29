@@ -15,8 +15,7 @@ import base64
 import json
 import logging
 import time
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
@@ -133,7 +132,9 @@ class TrustAnchorCache:
     def store(self, identity: RegistryIdentity) -> None:
         """Insert or refresh a registry identity in the cache."""
         self._cache[identity.registry_url] = (identity, time.time())
-        log.debug("Stored trust anchor for %s (tier=%s)", identity.registry_url, identity.tier)
+        log.debug(
+            "Stored trust anchor for %s (tier=%s)", identity.registry_url, identity.tier
+        )
 
     def lookup(self, registry_url: str) -> Optional[RegistryIdentity]:
         """Return a cached :class:`RegistryIdentity`, or ``None`` if absent / expired."""
@@ -270,7 +271,9 @@ class TrustAnchorCache:
             sig_bytes = base64.urlsafe_b64decode(sig_b64)
             pub_key.verify(sig_bytes, signing_input)
         except ImportError:
-            log.debug("cryptography package not available; skipping Ed25519 JWT verification")
+            log.debug(
+                "cryptography package not available; skipping Ed25519 JWT verification"
+            )
             return True, "structurally valid (cryptography not installed)"
         except Exception as exc:  # noqa: BLE001
             return False, f"JWT signature verification failed: {exc}"
@@ -347,16 +350,12 @@ def validate_cross_registry_command(
     # LoA check
     msg_loa = getattr(msg, "loa", None)
     if msg_loa is None or int(msg_loa) < 2:
-        return False, (
-            f"Cross-registry command requires LoA ≥ 2, got loa={msg_loa!r}"
-        )
+        return False, (f"Cross-registry command requires LoA ≥ 2, got loa={msg_loa!r}")
 
     # Source registry JWT verification
     source_registry: Optional[str] = None
     if msg.signature and isinstance(msg.signature, dict):
-        source_registry = (
-            msg.signature.get("registry_url") or msg.signature.get("iss")
-        )
+        source_registry = msg.signature.get("registry_url") or msg.signature.get("iss")
 
     if source_registry:
         jwt_token = msg.signature.get("value", "") if msg.signature else ""  # type: ignore[union-attr]
@@ -367,8 +366,10 @@ def validate_cross_registry_command(
 
     # Local consent record check
     consent_id = (
-        msg.params.get("consent_id") or msg.params.get("consent_ref")
-    ) if msg.params else None
+        (msg.params.get("consent_id") or msg.params.get("consent_ref"))
+        if msg.params
+        else None
+    )
     if not consent_id:
         log.warning(
             "Cross-registry command missing consent_id in params; "

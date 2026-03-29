@@ -1,9 +1,9 @@
 """Tests for rcan.gates — ConfidenceGate and HiTLGate."""
 
 import pytest
-from rcan import ConfidenceGate, HiTLGate, GateResult
-from rcan.exceptions import RCANGateError
 
+from rcan import ConfidenceGate, GateResult, HiTLGate
+from rcan.exceptions import RCANGateError
 
 # ---------------------------------------------------------------------------
 # ConfidenceGate

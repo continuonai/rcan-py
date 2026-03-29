@@ -21,8 +21,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from rcan.exceptions import ConsentError, RCANValidationError
-
 logger = logging.getLogger(__name__)
 
 
@@ -139,6 +137,7 @@ class ConsentDenyPayload:
 # ---------------------------------------------------------------------------
 # Builder helpers
 # ---------------------------------------------------------------------------
+
 
 def make_consent_request(
     target_rrn: str,
@@ -282,8 +281,6 @@ def validate_consent_message(msg: Any) -> tuple[bool, str]:
     else:
         return False, f"Unknown consent command: {cmd!r}"
 
-
-from typing import Optional  # noqa: E402 — needed for type hints above
 
 __all__ = [
     "ConsentRequestPayload",
