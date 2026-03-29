@@ -40,4 +40,4 @@ def test_rcan_version_exports():
     assert hasattr(rcan, "SPEC_VERSION"), "rcan.SPEC_VERSION not exported"
     import re
     assert re.match(r'^\d+\.\d+', rcan.__version__), f"Invalid __version__: {rcan.__version__!r}"
-    assert rcan.SPEC_VERSION == "2.2.0"
+    assert rcan.SPEC_VERSION == "2.2.1"

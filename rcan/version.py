@@ -10,10 +10,10 @@ Spec: https://rcan.dev/spec#section-3-5
 from __future__ import annotations
 
 # RCAN specification version this SDK implements.
-SPEC_VERSION: str = "2.2.0"
+SPEC_VERSION: str = "2.2.1"
 
 # SDK version (Python package)
-SDK_VERSION: str = "1.2.1"
+SDK_VERSION: str = "1.2.2"
 
 # v2.2 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
@@ -50,6 +50,8 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         # v2.2 features — ML-DSA-65 PRIMARY (Q-Day timeline accelerated to 2026)
         "PQ_HYBRID_SIGNING",    # ML-DSA-65 + Ed25519 hybrid (FIPS 204)
         "ML_DSA_PRIMARY",       # ML-DSA-65 is the primary signing algorithm (Ed25519 = legacy compat only)
+        # v2.2.1 features
+        "MULTI_TYPE_ENTITY_NUMBERING",  # §21.2.2 RRN/RCN/RMN/RHN sequential registry IDs
     }
 )
 

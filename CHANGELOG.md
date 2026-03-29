@@ -4,6 +4,16 @@ All notable changes to rcan-py are documented here.
 
 ---
 
+## [1.2.2] - 2026-03-28
+
+### Changed
+- `SPEC_VERSION` updated to `2.2.1`
+- `SDK_VERSION` bumped to `1.2.2`
+- `SUPPORTED_FEATURES`: added `MULTI_TYPE_ENTITY_NUMBERING` (§21.2.2)
+
+Closes #44.
+
+
 ## [0.6.0] — 2026-03-16
 
 ### Added — RCAN v1.6 support (4 gaps closed)
