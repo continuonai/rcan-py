@@ -205,6 +205,63 @@ class RobotURI:
         except InvalidSignature as exc:
             raise RCANAddressError(f"RURI_SIGNATURE_INVALID for {self!r}") from exc
 
+    def sign_pqc(self, keypair: "MlDsaKeyPair") -> str:
+        """Return a signed RURI string using ML-DSA-65 (``?pqc_sig=<base64url>``).
+
+        The signature covers the UTF-8 encoded path (no scheme, no query
+        string), identical to :meth:`sign` but using ML-DSA-65 instead of
+        Ed25519.
+
+        Args:
+            keypair: :class:`~rcan.crypto.MlDsaKeyPair` with private key.
+
+        Returns:
+            Signed RURI string including ``?pqc_sig=<base64url>``.
+
+        Raises:
+            RCANSignatureError: If *keypair* has no private key.
+            ImportError:        If dilithium-py is not installed.
+        """
+        import base64
+
+        from rcan.crypto import MlDsaKeyPair, sign_ml_dsa  # noqa: F401 (type check)
+
+        sig_bytes = sign_ml_dsa(keypair, self.path.encode())
+        sig_b64 = base64.urlsafe_b64encode(sig_bytes).rstrip(b"=").decode()
+        return f"{self}?pqc_sig={sig_b64}"
+
+    def verify_sig_pqc(self, pqc_sig_b64: str, keypair: "MlDsaKeyPair") -> bool:
+        """Verify an ML-DSA-65 RURI signature.
+
+        Args:
+            pqc_sig_b64: Base64url-encoded ML-DSA-65 signature (from ``?pqc_sig=``).
+            keypair:     :class:`~rcan.crypto.MlDsaKeyPair` (public key only is
+                         sufficient).
+
+        Returns:
+            True if valid.
+
+        Raises:
+            RCANAddressError: If the signature is invalid.
+            ImportError:      If dilithium-py is not installed.
+        """
+        import base64
+
+        from rcan.crypto import MlDsaKeyPair, verify_ml_dsa  # noqa: F401
+
+        try:
+            sig_bytes = base64.urlsafe_b64decode(pqc_sig_b64 + "==")
+            verify_ml_dsa(keypair.public_key_bytes, self.path.encode(), sig_bytes)
+            return True
+        except Exception as exc:
+            from rcan.exceptions import RCANSignatureError
+
+            if isinstance(exc, RCANSignatureError):
+                raise RCANAddressError(
+                    f"RURI_PQC_SIGNATURE_INVALID for {self!r}"
+                ) from exc
+            raise
+
     @classmethod
     def parse_signed(cls, uri: str) -> tuple["RobotURI", str | None]:
         """Parse a (possibly signed) RURI string.
