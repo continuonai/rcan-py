@@ -410,6 +410,85 @@ class M2MAuthError(Exception):
     """Raised when M2M token verification fails."""
 
 
+def sign_m2m_pqc(
+    payload: "dict[str, Any]",
+    keypair: "MlDsaKeyPair",
+    *,
+    sig_field: str = "pqc_sig",
+) -> "dict[str, Any]":
+    """Sign an M2M JWT payload dict with ML-DSA-65.
+
+    Computes an ML-DSA-65 signature over the canonical JSON of *payload*
+    (all fields except *sig_field*, sorted keys, no extra whitespace) and
+    adds it as ``payload[sig_field]`` (base64url, no padding).
+
+    This is the PQC analogue of the Ed25519 ``rrf_sig`` field used by
+    ``M2M_TRUSTED`` tokens.  Both fields can coexist during the transition
+    period.
+
+    Args:
+        payload:   JWT claims dict (modified in-place and returned).
+        keypair:   :class:`~rcan.crypto.MlDsaKeyPair` with private key.
+        sig_field: Name of the field to store the signature (default: ``"pqc_sig"``).
+
+    Returns:
+        The *payload* dict with *sig_field* added/updated.
+
+    Raises:
+        RCANSignatureError: If *keypair* has no private key.
+        ImportError:        If dilithium-py is not installed.
+    """
+    from rcan.crypto import MlDsaKeyPair, sign_ml_dsa  # noqa: F401
+
+    canonical_payload = {k: v for k, v in payload.items() if k != sig_field}
+    canonical = json.dumps(
+        canonical_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    raw_sig = sign_ml_dsa(keypair, canonical)
+    payload[sig_field] = base64.urlsafe_b64encode(raw_sig).rstrip(b"=").decode()
+    return payload
+
+
+def verify_m2m_pqc(
+    payload: "dict[str, Any]",
+    public_key_bytes: bytes,
+    *,
+    sig_field: str = "pqc_sig",
+) -> None:
+    """Verify an ML-DSA-65 M2M payload signature.
+
+    Verifies the ML-DSA-65 signature stored in ``payload[sig_field]`` over
+    the canonical JSON of *payload* (excluding *sig_field* itself).
+
+    Args:
+        payload:          JWT claims dict containing *sig_field*.
+        public_key_bytes: Raw ML-DSA-65 public key bytes (1952 bytes).
+        sig_field:        Name of the signature field (default: ``"pqc_sig"``).
+
+    Raises:
+        M2MAuthError: If the signature is missing or invalid.
+        ImportError:  If dilithium-py is not installed.
+    """
+    from rcan.crypto import verify_ml_dsa
+
+    sig_b64 = payload.get(sig_field)
+    if not sig_b64:
+        raise M2MAuthError(f"M2M payload missing '{sig_field}' field")
+
+    canonical_payload = {k: v for k, v in payload.items() if k != sig_field}
+    canonical = json.dumps(
+        canonical_payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+
+    try:
+        sig_bytes = base64.urlsafe_b64decode(sig_b64 + "==")
+        verify_ml_dsa(public_key_bytes, canonical, sig_bytes)
+    except Exception as exc:
+        raise M2MAuthError(
+            f"M2M ML-DSA-65 signature verification failed: {exc}"
+        ) from exc
+
+
 __all__ = [
     "M2MPeerClaims",
     "M2MTrustedClaims",
@@ -417,5 +496,7 @@ __all__ = [
     "M2M_TRUSTED_ISSUER",
     "parse_m2m_peer_token",
     "verify_m2m_trusted_token",
+    "sign_m2m_pqc",
+    "verify_m2m_pqc",
     "RRFRevocationPoller",
 ]

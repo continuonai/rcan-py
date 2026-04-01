@@ -162,6 +162,8 @@ from rcan.m2m import (
     RRFRevocationPoller,
     parse_m2m_peer_token,
     verify_m2m_trusted_token,
+    sign_m2m_pqc,
+    verify_m2m_pqc,
 )
 from rcan.message import (
     MessageType,
@@ -420,6 +422,36 @@ __all__ = [
     # rcan.registry — RegistryClient (requires rcan[http])
     # rcan.signing  — KeyPair, MLDSAKeyPair, sign_message, verify_message (requires rcan[crypto]; dilithium-py for ML-DSA)
     # rcan.audit    — AuditChain
+    # v2.2 — PQC crypto primitives (issue #47)
+    "MlDsaKeyPair",
+    "HybridSignature",
+    "generate_ml_dsa_keypair",
+    "sign_ml_dsa",
+    "verify_ml_dsa",
+    "sign_hybrid",
+    "verify_hybrid",
+    "encode_public_key_jwk",
+    "decode_public_key_jwk",
+    "ML_DSA_ALG",
+    "HYBRID_ALG",
+    # v2.2 — M2M PQC helpers
+    "sign_m2m_pqc",
+    "verify_m2m_pqc",
 ]
 
 from .mcp import LOA_TO_SCOPE, TOOL_LOA_REQUIREMENTS, McpClientConfig, McpServerConfig
+
+# v2.2 — PQC crypto primitives (issue #47)
+from rcan.crypto import (
+    HYBRID_ALG,
+    ML_DSA_ALG,
+    HybridSignature,
+    MlDsaKeyPair,
+    decode_public_key_jwk,
+    encode_public_key_jwk,
+    generate_ml_dsa_keypair,
+    sign_hybrid,
+    sign_ml_dsa,
+    verify_hybrid,
+    verify_ml_dsa,
+)
