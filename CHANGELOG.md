@@ -1,3 +1,11 @@
+## [1.3.0] — 2026-03-31
+
+### Added
+- `rcan/crypto.py` — ML-DSA-65 post-quantum signing primitives (`MlDsaKeyPair`, `HybridSignature`, `generate_ml_dsa_keypair`, `sign_hybrid`, `verify_hybrid`, `encode_public_key_jwk`)
+- `RobotURI.sign_pqc()` / `verify_sig_pqc()` — pqc-hybrid-v1 RURI signing
+- `sign_m2m_pqc()` / `verify_m2m_pqc()` — PQC M2M token signing
+- Implements RCAN spec v2.3 pqc-hybrid-v1 profile (NIST FIPS 204 ML-DSA-65)
+
 # Changelog
 
 All notable changes to rcan-py are documented here.
