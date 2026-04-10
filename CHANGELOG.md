@@ -1,3 +1,14 @@
+## [1.4.0] — 2026-04-10
+
+### Added
+- `rcan/watermark.py` — AI output watermark module (RCAN §16.5): `compute_watermark_token()`, `verify_token_format()`, `verify_via_api()`. Mirrors the OpenCastor runtime implementation for SDK consumers that hold the robot's ML-DSA-65 private key; `verify_via_api` calls the robot's public `GET /api/v1/watermark/verify` endpoint
+- `compute_watermark_token`, `verify_token_format`, `verify_via_api` exported from `rcan.__init__` and listed in `__all__`
+
+### Tests
+- `tests/test_watermark.py` — 12 tests: compute determinism/sensitivity, format validation, async API mock (200/404), `httpx` ImportError path
+
+---
+
 ## [1.3.0] — 2026-03-31
 
 ### Added
