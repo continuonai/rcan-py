@@ -64,12 +64,18 @@ class TestVerifyViaApi:
 
         token = "rcan-wm-v1:" + "a" * 32
         entry = {"event": "motor_command", "watermark_token": token}
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"valid": True, "audit_entry": entry}
 
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
         async def run():
-            with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+            with patch("httpx.AsyncClient", return_value=mock_client):
                 return await verify_via_api(token, "RRN-1", "http://robot.local:8000")
 
         result = asyncio.run(run())
@@ -83,12 +89,31 @@ class TestVerifyViaApi:
         mock_resp = MagicMock()
         mock_resp.status_code = 404
 
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
         async def run():
-            with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+            with patch("httpx.AsyncClient", return_value=mock_client):
                 return await verify_via_api("rcan-wm-v1:" + "b" * 32, "RRN-1", "http://robot.local:8000")
 
         result = asyncio.run(run())
         assert result is None
+
+    def test_raises_importerror_without_httpx(self):
+        import asyncio
+        import sys
+        import pytest
+        from unittest.mock import patch
+        from rcan.watermark import verify_via_api
+
+        async def run():
+            with patch.dict(sys.modules, {"httpx": None}):
+                await verify_via_api("rcan-wm-v1:" + "a" * 32, "RRN-1", "http://robot.local")
+
+        with pytest.raises(ImportError, match="httpx"):
+            asyncio.run(run())
 
 
 class TestExports:

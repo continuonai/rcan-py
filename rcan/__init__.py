@@ -438,6 +438,10 @@ __all__ = [
     # v2.2 — M2M PQC helpers
     "sign_m2m_pqc",
     "verify_m2m_pqc",
+    # Watermark
+    "compute_watermark_token",
+    "verify_token_format",
+    "verify_via_api",
 ]
 
 from .mcp import LOA_TO_SCOPE, TOOL_LOA_REQUIREMENTS, McpClientConfig, McpServerConfig
