@@ -153,3 +153,17 @@ def test_eu_register_entry_no_fria():
     )
     assert entry.fria_submitted_at is None
     assert entry.compliance_status == "no_fria"
+
+
+def test_post_market_incident_frozen():
+    inc = PostMarketIncident(
+        rrn="RRN-000000000001",
+        incident_id="INC-001",
+        severity="low",
+        description="Minor sensor anomaly",
+        occurred_at="2026-04-12T10:00:00.000Z",
+        reported_at="2026-04-12T10:05:00.000Z",
+        status="open",
+    )
+    with pytest.raises(Exception):
+        inc.status = "resolved"  # type: ignore[misc]
