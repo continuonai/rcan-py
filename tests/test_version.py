@@ -19,8 +19,8 @@ def test_version_flag_output():
 
     assert _rcan_mod.__version__ in output, f"Version not found in output: {output!r}"
     assert (
-        "2.2" in output
-    )  # substring match — covers 1.10.0, f"Spec version not found in output: {output!r}"
+        "3.0" in output
+    ), f"Spec version not found in output: {output!r}"
     assert result.returncode == 0
 
 
@@ -46,4 +46,4 @@ def test_rcan_version_exports():
     assert re.match(r"^\d+\.\d+", rcan.__version__), (
         f"Invalid __version__: {rcan.__version__!r}"
     )
-    assert rcan.SPEC_VERSION == "2.2.1"
+    assert rcan.SPEC_VERSION == "3.0"

@@ -40,6 +40,16 @@ from rcan import (
     sbom,
     transport,
 )
+# v3.0 — Compliance schemas (§22–§26)
+from rcan.compliance import (
+    EuRegisterEntry,
+    FriaConformance,
+    FriaDocument,
+    FriaSigningKey,
+    InstructionsForUse,
+    PostMarketIncident,
+    SafetyBenchmark,
+)
 from rcan.address import RobotURI
 from rcan.audit import CommitmentRecord
 
@@ -171,6 +181,8 @@ from rcan.message import (
     RCANResponse,
     SenderType,
     make_cloud_relay_message,
+    make_registry_register,
+    RegistryRegisterPayload,
     validate_version_compat,
 )
 from rcan.multimodal import (
@@ -232,8 +244,8 @@ from rcan.types import RCANAgentConfig, RCANConfig, RCANMessageEnvelope, RCANMet
 from rcan.version import SPEC_VERSION, SUPPORTED_FEATURES
 from rcan.watermark import compute_watermark_token, verify_token_format, verify_via_api
 
-__version__ = "1.1.0"
-__spec_version__ = "2.1.0"
+__version__ = "2.0.0"
+__spec_version__ = "3.0"
 
 __all__ = [
     # Address
@@ -245,6 +257,16 @@ __all__ = [
     "SenderType",
     "make_cloud_relay_message",
     "validate_version_compat",
+    # v3.0 — Compliance schemas
+    "FriaSigningKey",
+    "FriaConformance",
+    "FriaDocument",
+    "SafetyBenchmark",
+    "InstructionsForUse",
+    "PostMarketIncident",
+    "EuRegisterEntry",
+    "RegistryRegisterPayload",
+    "make_registry_register",
     # Audit
     "CommitmentRecord",
     # Gates

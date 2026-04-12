@@ -1,3 +1,18 @@
+## [2.0.0] — 2026-04-12
+
+### Breaking Changes
+- `REGISTRY_REGISTER` payload now requires `fria_ref` (RCAN v3.0 §21.3). Use the new `make_registry_register()` helper which enforces this field.
+- `SPEC_VERSION` updated from `"2.2.1"` to `"3.0"`.
+- `__version__` updated from `"1.4.0"` to `"2.0.0"`.
+
+### Added
+- `rcan.compliance` module: `FriaDocument`, `FriaSigningKey`, `FriaConformance`, `SafetyBenchmark`, `InstructionsForUse`, `PostMarketIncident`, `EuRegisterEntry` — compliance dataclasses for RCAN v3.0 §22–§26.
+- `RegistryRegisterPayload` TypedDict — typed constructor for REGISTRY_REGISTER payloads.
+- `make_registry_register()` — builder function for REGISTRY_REGISTER messages.
+- New feature flags in `SUPPORTED_FEATURES`: `FRIA_COMPLIANCE`, `SAFETY_BENCHMARK`, `INSTRUCTIONS_FOR_USE`, `POST_MARKET_MONITORING`, `EU_REGISTER`.
+
+---
+
 ## [1.4.0] — 2026-04-10
 
 ### Added

@@ -10,10 +10,10 @@ Spec: https://rcan.dev/spec#section-3-5
 from __future__ import annotations
 
 # RCAN specification version this SDK implements.
-SPEC_VERSION: str = "2.2.1"
+SPEC_VERSION: str = "3.0"
 
 # SDK version (Python package)
-SDK_VERSION: str = "1.2.2"
+SDK_VERSION: str = "2.0.0"
 
 # v2.2 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
@@ -52,6 +52,11 @@ SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "ML_DSA_PRIMARY",  # ML-DSA-65 is the primary signing algorithm (Ed25519 = legacy compat only)
         # v2.2.1 features
         "MULTI_TYPE_ENTITY_NUMBERING",  # §21.2.2 RRN/RCN/RMN/RHN sequential registry IDs
+        "FRIA_COMPLIANCE",        # §22 Fundamental Rights Impact Assessment
+        "SAFETY_BENCHMARK",       # §23 Safety Benchmark Protocol
+        "INSTRUCTIONS_FOR_USE",   # §24 EU AI Act Art. 13 IFU
+        "POST_MARKET_MONITORING", # §25 EU AI Act Art. 72 incidents
+        "EU_REGISTER",            # §26 EU AI Act Art. 49/60 register submission
     }
 )
 
