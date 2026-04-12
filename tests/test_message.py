@@ -324,3 +324,15 @@ def test_make_registry_register_empty_metadata_default():
         fria_ref="1",
     )
     assert msg.payload["metadata"] == {}
+
+
+def test_make_registry_register_fria_ref_required():
+    """fria_ref is required in RCAN v3.0 — omitting it must raise TypeError."""
+    with pytest.raises(TypeError):
+        make_registry_register(
+            rrn="RRN-000000000001",
+            robot_name="bot",
+            public_key="AAAA",
+            verification_tier="community",
+            # fria_ref intentionally omitted
+        )
