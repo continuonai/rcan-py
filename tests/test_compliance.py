@@ -104,13 +104,28 @@ def test_instructions_for_use_fields():
         robot_name="bot",
         intended_use="indoor navigation",
         operating_environment="warehouse",
-        contraindications=["wet floors", "outdoor use"],
+        contraindications=("wet floors", "outdoor use"),
         version="1.0",
         issued_at="2026-04-12T09:00:00.000Z",
     )
     assert ifu.rrn == "RRN-000000000001"
     assert len(ifu.contraindications) == 2
     assert "wet floors" in ifu.contraindications
+
+
+def test_instructions_for_use_contraindications_immutable():
+    ifu = InstructionsForUse(
+        rrn="RRN-000000000001",
+        robot_name="bot",
+        intended_use="indoor navigation",
+        operating_environment="warehouse",
+        contraindications=("wet floors",),
+        version="1.0",
+        issued_at="2026-04-12T09:00:00.000Z",
+    )
+    assert isinstance(ifu.contraindications, tuple)
+    # tuples do not support append — verifies immutability
+    assert not hasattr(ifu.contraindications, "append")
 
 
 def test_post_market_incident_fields():
@@ -167,3 +182,17 @@ def test_post_market_incident_frozen():
     )
     with pytest.raises(Exception):
         inc.status = "resolved"  # type: ignore[misc]
+
+
+def test_fria_document_not_hashable():
+    """FriaDocument is not hashable because system/deployment/sig are plain dicts."""
+    doc = FriaDocument(
+        schema="rcan-fria-v1",
+        generated_at="2026-04-12T09:00:00.000Z",
+        system={"rrn": "RRN-000000000001"},
+        deployment={"annex_iii_basis": "safety_component"},
+        signing_key=FriaSigningKey(alg="ml-dsa-65", kid="k", public_key="A"),
+        sig={"alg": "ml-dsa-65", "kid": "k", "value": "B"},
+    )
+    with pytest.raises(TypeError):
+        hash(doc)

@@ -48,8 +48,10 @@ class FriaDocument:
     Corresponds to the JSON payload submitted to
     POST /api/v1/robots/:rrn/fria on the RRF registry.
 
-    ``system`` and ``deployment`` are kept as plain dicts because the
-    FRIA schema allows implementation-defined extra fields.
+    ``system``, ``deployment``, and ``sig`` are kept as plain dicts because the
+    FRIA schema allows implementation-defined extra fields. As a consequence,
+    ``FriaDocument`` instances are **not hashable** and cannot be used as dict
+    keys or in sets.
     """
 
     schema: str                          # must be "rcan-fria-v1"
@@ -89,7 +91,7 @@ class InstructionsForUse:
     robot_name: str
     intended_use: str
     operating_environment: str
-    contraindications: list[str]  # conditions under which robot must not operate
+    contraindications: tuple[str, ...]  # conditions under which robot must not operate
     version: str                  # IFU document version, e.g. "1.0"
     issued_at: str                # ISO-8601 timestamp
 
