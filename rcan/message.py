@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 from rcan.address import RobotURI
 from rcan.exceptions import RCANValidationError, VersionIncompatibleError
@@ -219,9 +219,11 @@ class RCANMessage:
         transport_encoding: Transport encoding hint for constrained channels (GAP-17).
     """
 
-    cmd: str
-    target: RobotURI | str
+    cmd: str = ""
+    target: RobotURI | str = ""
     params: dict[str, Any] = field(default_factory=dict)
+    type: Optional["MessageType"] = None
+    payload: dict[str, Any] = field(default_factory=dict)
     confidence: float | None = None
     rcan: str = field(default_factory=lambda: SPEC_VERSION)
     msg_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -259,15 +261,16 @@ class RCANMessage:
     pq_alg: str = "ml-dsa-65"  # PQ algorithm identifier
 
     def __post_init__(self) -> None:
-        # Normalize target to RobotURI
-        if isinstance(self.target, str):
+        # Normalize target to RobotURI (skip for typed messages with no target)
+        if isinstance(self.target, str) and self.target:
             self.target = RobotURI.parse(self.target)
         # Validate confidence range
         if self.confidence is not None and not (0.0 <= self.confidence <= 1.0):
             raise RCANValidationError(
                 f"confidence must be in [0.0, 1.0], got {self.confidence}"
             )
-        if not self.cmd:
+        # cmd is required only for command-style messages (type=None)
+        if not self.cmd and self.type is None:
             raise RCANValidationError("cmd must not be empty")
         # Sync rcan and rcan_version (both carry the spec version)
         if self.rcan_version == SPEC_VERSION and self.rcan != SPEC_VERSION:
@@ -554,3 +557,61 @@ class RCANResponse:
             "duration_ms": self.duration_ms,
             "timestamp": self.timestamp,
         }
+
+
+# ---------------------------------------------------------------------------
+# REGISTRY_REGISTER payload — v3.0 breaking change (fria_ref required)
+# ---------------------------------------------------------------------------
+
+
+class RegistryRegisterPayload(TypedDict):
+    """Typed payload for REGISTRY_REGISTER messages.
+
+    ``fria_ref`` is required in RCAN v3.0. Callers must submit a FRIA
+    document via POST /api/v1/robots/:rrn/fria and pass the returned
+    document ID here before registering.
+
+    Spec: https://rcan.dev/spec/section-21 (§21.3 REGISTRY_REGISTER)
+    """
+
+    rrn: str
+    robot_name: str
+    public_key: str          # base64url Ed25519 or ML-DSA-65 public key
+    verification_tier: str   # "community" | "verified" | "manufacturer" | "certified"
+    fria_ref: str            # REQUIRED — ID of submitted FRIA document
+    metadata: dict           # implementation-defined extra fields
+
+
+def make_registry_register(
+    rrn: str,
+    robot_name: str,
+    public_key: str,
+    verification_tier: str,
+    fria_ref: str,
+    metadata: dict | None = None,
+) -> RCANMessage:
+    """Build a REGISTRY_REGISTER message with a required fria_ref.
+
+    ``fria_ref`` is required in RCAN v3.0. Callers must obtain this ID
+    by first submitting a FRIA document via POST /api/v1/robots/:rrn/fria.
+
+    Args:
+        rrn: Robot Registry Number, e.g. "RRN-000000000001"
+        robot_name: Human-readable robot name
+        public_key: Base64url-encoded public key (Ed25519 or ML-DSA-65)
+        verification_tier: One of "community", "verified", "manufacturer", "certified"
+        fria_ref: ID of the FRIA document (returned by the registry API)
+        metadata: Optional dict of extra fields
+
+    Returns:
+        RCANMessage with type=REGISTRY_REGISTER and the payload set.
+    """
+    payload = RegistryRegisterPayload(
+        rrn=rrn,
+        robot_name=robot_name,
+        public_key=public_key,
+        verification_tier=verification_tier,
+        fria_ref=fria_ref,
+        metadata=metadata or {},
+    )
+    return RCANMessage(type=MessageType.REGISTRY_REGISTER, payload=dict(payload))

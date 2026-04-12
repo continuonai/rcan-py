@@ -270,3 +270,57 @@ def test_from_dict_version_check():
     }
     with pytest.raises(VersionIncompatibleError):
         RCANMessage.from_dict(data)
+
+
+# ---------------------------------------------------------------------------
+# RegistryRegisterPayload + make_registry_register (v3.0 breaking change)
+# ---------------------------------------------------------------------------
+
+from rcan.message import MessageType, make_registry_register
+
+
+def test_make_registry_register_type():
+    msg = make_registry_register(
+        rrn="RRN-000000000001",
+        robot_name="bot",
+        public_key="AAAA",
+        verification_tier="verified",
+        fria_ref="42",
+    )
+    assert msg.type == MessageType.REGISTRY_REGISTER
+
+
+def test_make_registry_register_fria_ref_present():
+    msg = make_registry_register(
+        rrn="RRN-000000000001",
+        robot_name="bot",
+        public_key="AAAA",
+        verification_tier="verified",
+        fria_ref="42",
+    )
+    assert msg.payload["fria_ref"] == "42"
+
+
+def test_make_registry_register_all_fields():
+    msg = make_registry_register(
+        rrn="RRN-000000000002",
+        robot_name="arm",
+        public_key="BBBB",
+        verification_tier="manufacturer",
+        fria_ref="99",
+        metadata={"category": "robot"},
+    )
+    assert msg.payload["rrn"] == "RRN-000000000002"
+    assert msg.payload["verification_tier"] == "manufacturer"
+    assert msg.payload["metadata"] == {"category": "robot"}
+
+
+def test_make_registry_register_empty_metadata_default():
+    msg = make_registry_register(
+        rrn="RRN-000000000001",
+        robot_name="bot",
+        public_key="AAAA",
+        verification_tier="community",
+        fria_ref="1",
+    )
+    assert msg.payload["metadata"] == {}
