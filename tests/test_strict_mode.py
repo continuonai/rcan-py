@@ -7,7 +7,7 @@ from rcan.validate import validate_config
 
 # Minimal valid L1/L2/L3 config — passes without strict
 FULL_CONFIG = {
-    "rcan_version": "2.2.1",
+    "rcan_version": "3.0",
     "metadata": {
         "manufacturer": "Acme",
         "model": "AcmeBot",
@@ -29,7 +29,7 @@ WRONG_VERSION_CONFIG = {**FULL_CONFIG, "rcan_version": "1.0"}
 
 # Config that generates warnings (missing optional but warned fields)
 WARN_CONFIG = {
-    "rcan_version": "2.2.1",
+    "rcan_version": "3.0",
     "metadata": {
         "manufacturer": "Acme",
         "model": "AcmeBot",

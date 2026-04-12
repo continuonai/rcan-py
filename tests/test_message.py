@@ -247,7 +247,7 @@ def test_validate_version_compat_same_version():
 def test_validate_version_compat_lower_minor():
     from rcan.message import validate_version_compat
 
-    assert validate_version_compat("2.0") is True
+    assert validate_version_compat("3.0") is True
 
 
 def test_validate_version_compat_wrong_major():
