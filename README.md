@@ -1,17 +1,31 @@
 # rcan-py
 
-Python SDK for the [RCAN protocol](https://rcan.dev/spec/) — build robots that communicate securely, audit every action, and enforce safety gates locally.
+**Python SDK for the [RCAN protocol](https://rcan.dev/spec/) v3.0.** Build robots that communicate securely, audit every action, enforce safety gates locally, and register with the Robot Registry Foundation.
 
 [![PyPI version](https://img.shields.io/pypi/v/rcan.svg)](https://pypi.org/project/rcan/)
-[![RCAN Spec](https://img.shields.io/badge/RCAN-v1.6-blue)](https://rcan.dev/spec/)
+[![RCAN Spec](https://img.shields.io/badge/RCAN-v3.0-blue)](https://rcan.dev/spec/)
 [![Tests](https://github.com/continuonai/rcan-py/actions/workflows/ci.yml/badge.svg)](https://github.com/continuonai/rcan-py/actions)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/rcan/)
 
+## Where this fits in the stack
+
+This repo is the **Python SDK** layer — the library any Python planner, gateway, or driver links against to speak RCAN. Everything below is independent; adopt one, or all seven.
+
+| Layer | Piece | What it is |
+|---|---|---|
+| **Declaration** | [ROBOT.md](https://github.com/RobotRegistryFoundation/robot-md) | The file a robot ships at its root. YAML frontmatter + markdown prose. Declares identity, capabilities, safety gates. Spec + Python CLI. |
+| **Agent bridge** | [robot-md-mcp](https://github.com/RobotRegistryFoundation/robot-md-mcp) | MCP server that exposes a `ROBOT.md` to Claude Code, Claude Desktop, Cursor, Zed, Gemini CLI — any MCP-aware agent. |
+| **Wire protocol** | [RCAN](https://rcan.dev/spec/) | How robots, gateways, and planners talk. Signed envelopes, LoA enforcement, PQC crypto. Think HTTP for robots. |
+| **Python SDK** ← *this* | [rcan-py](https://github.com/continuonai/rcan-py) | `pip install rcan` — `RCANMessage`, `RobotURI`, `ConfidenceGate`, `HiTLGate`, `AuditChain`, `RegistryClient`. |
+| **TypeScript SDK** | [rcan-ts](https://github.com/continuonai/rcan-ts) | `npm install rcan-ts` — same API surface for Node + browser. |
+| **Registry** | [Robot Registry Foundation](https://robotregistryfoundation.org) | Permanent RRN identities. Public resolver at `/r/<rrn>`. Like ICANN for robots. |
+| **Reference runtime** | [OpenCastor](https://github.com/craigm26/OpenCastor) | Open-source robot runtime — connects LLM brains to hardware bodies. One implementation of RCAN. |
+
 ## Install
 
 ```bash
-pip install rcan==0.6.0
+pip install rcan
 ```
 
 Optional extras:
