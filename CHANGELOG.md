@@ -1,3 +1,30 @@
+## [2.1.0] — 2026-04-18
+
+### Added
+
+- **`rcan.from_manifest(path)`** — cross-link to the ROBOT.md file format.
+  Reads a `ROBOT.md` manifest and returns a `ManifestInfo` with rrn,
+  rcan_uri, endpoint (`network.rrf_endpoint`), signing_alg, public
+  resolver URL, robot_name, rcan_version, and the raw frontmatter.
+  Lets operators go from a manifest on disk to a preconfigured
+  `RegistryClient` without hand-copying identity fields:
+
+  ```python
+  from rcan import from_manifest
+  from rcan.registry import RegistryClient
+
+  info = from_manifest("./ROBOT.md")
+  async with RegistryClient(base_url=info.endpoint) as rc:
+      robot = await rc.get_robot(info.rrn)
+  ```
+- **Optional extra `rcan[manifest]`** — installs `pyyaml` for manifest
+  parsing. Without the extra, `from_manifest` raises `ImportError` with
+  a helpful message.
+
+See <https://robotmd.dev> for the ROBOT.md spec.
+
+---
+
 ## [2.0.0] — 2026-04-12
 
 ### Breaking Changes
