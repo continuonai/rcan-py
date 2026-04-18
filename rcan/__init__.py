@@ -51,6 +51,7 @@ from rcan.compliance import (
     SafetyBenchmark,
 )
 from rcan.address import RobotURI
+from rcan.manifest import ManifestInfo, from_manifest
 from rcan.audit import CommitmentRecord
 
 # v1.5 modules — Clock Synchronization (GAP-04)
@@ -250,6 +251,9 @@ __spec_version__ = "3.0"
 __all__ = [
     # Address
     "RobotURI",
+    # ROBOT.md cross-link (optional extra: `rcan[manifest]`)
+    "from_manifest",
+    "ManifestInfo",
     # Message
     "RCANMessage",
     "RCANResponse",
