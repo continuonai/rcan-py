@@ -1,5 +1,12 @@
-## [2.1.0] — 2026-04-18
+## [3.0.0] — 2026-04-21
 
+### Added
+- Bumped SDK to v3.0.0 to officially align with the RCAN Spec v3.0 release.
+- Added implementation for EU AI Act compliance schemas: §23–§26.
+
+---
+
+## [2.1.0] — 2026-04-18
 ### Added
 
 - **`rcan.from_manifest(path)`** — cross-link to the ROBOT.md file format.
