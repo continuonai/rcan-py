@@ -273,3 +273,67 @@ def test_build_ifu_includes_provider_identity():
         sections={"provider_identity": {"manufacturer": "M", "author": "a@b"}},
     )
     assert out["sections"]["provider_identity"]["manufacturer"] == "M"
+
+
+# ----- v3.1 compliance builder tests (§25, §26) -----
+
+from rcan.compliance import build_eu_register_entry, build_incident_report
+
+
+def test_build_incident_report_envelope_shape():
+    incidents = [
+        {
+            "incident_id": "INC-0001",
+            "date": "2026-04-20T10:00:00Z",
+            "severity": "minor",
+            "description": "grip slipped at 100g payload",
+            "mitigation": "tightened gripper preload",
+        }
+    ]
+    out = build_incident_report(
+        rrn="RRN-000000000042",
+        manifest_path="/x/ROBOT.md",
+        incidents=incidents,
+        generated_at="2026-04-23T12:00:00Z",
+    )
+    assert out["schema"] == "rcan-incidents-v1"
+    assert out["rrn"] == "RRN-000000000042"
+    assert out["manifest_path"] == "/x/ROBOT.md"
+    assert out["generated_at"] == "2026-04-23T12:00:00Z"
+    assert out["incidents"] == incidents
+    assert out["count"] == 1
+
+
+def test_build_incident_report_empty_incidents_ok():
+    out = build_incident_report(
+        rrn="RRN-000000000001",
+        manifest_path="/x.md",
+        incidents=[],
+        generated_at="2026-04-23T12:00:00Z",
+    )
+    assert out["incidents"] == []
+    assert out["count"] == 0
+
+
+def test_build_eu_register_entry_envelope_shape():
+    system = {
+        "rrn": "RRN-000000000042",
+        "name": "bob",
+        "manufacturer": "ACME",
+        "annex_iii_basis": "safety_component",
+        "rcn_ids": ["RCN-000000000001"],
+        "rmn": "RMN-000000000002",
+    }
+    out = build_eu_register_entry(
+        rrn="RRN-000000000042",
+        manifest_path="/x/ROBOT.md",
+        fria_ref="file:./fria.pdf",
+        system=system,
+        submitted_at="2026-04-23T12:00:00Z",
+    )
+    assert out["schema"] == "rcan-eu-register-v1"
+    assert out["rrn"] == "RRN-000000000042"
+    assert out["manifest_path"] == "/x/ROBOT.md"
+    assert out["fria_ref"] == "file:./fria.pdf"
+    assert out["system"] == system
+    assert out["submitted_at"] == "2026-04-23T12:00:00Z"

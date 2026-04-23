@@ -203,6 +203,67 @@ def build_ifu(
     }
 
 
+def build_incident_report(
+    *,
+    rrn: str,
+    manifest_path: str,
+    incidents: list[dict],
+    generated_at: str,
+) -> dict:
+    """Build an ``rcan-incidents-v1`` envelope (§25 — Art. 72 post-market).
+
+    Args:
+        rrn: Robot Resource Name.
+        manifest_path: Source ROBOT.md path.
+        incidents: List of incident dicts. Caller provides; builder does
+                   not validate sub-structure.
+        generated_at: ISO 8601 UTC timestamp of report generation.
+
+    Returns:
+        Dict conforming to §25 schema with a ``count`` field for quick
+        consumer summaries.
+    """
+    return {
+        "schema": INCIDENT_REPORT_SCHEMA,
+        "rrn": rrn,
+        "manifest_path": manifest_path,
+        "generated_at": generated_at,
+        "count": len(incidents),
+        "incidents": incidents,
+    }
+
+
+def build_eu_register_entry(
+    *,
+    rrn: str,
+    manifest_path: str,
+    fria_ref: str,
+    system: dict,
+    submitted_at: str,
+) -> dict:
+    """Build an ``rcan-eu-register-v1`` envelope (§26 — Art. 49 EU Register).
+
+    Args:
+        rrn: Robot Resource Name.
+        manifest_path: Source ROBOT.md path.
+        fria_ref: URI reference to the FRIA artifact (file: or http URI).
+        system: System-block dict (rrn, name, manufacturer, annex_iii_basis,
+                optional rcn_ids / rmn / rhn_ids).
+        submitted_at: ISO 8601 UTC timestamp of submission.
+
+    Returns:
+        Dict conforming to §26 schema.
+    """
+    return {
+        "schema": EU_REGISTER_SCHEMA,
+        "rrn": rrn,
+        "manifest_path": manifest_path,
+        "fria_ref": fria_ref,
+        "submitted_at": submitted_at,
+        "system": system,
+    }
+
+
 __all__ = [
     "FriaSigningKey",
     "FriaConformance",
@@ -217,4 +278,6 @@ __all__ = [
     "EU_REGISTER_SCHEMA",
     "build_safety_benchmark",
     "build_ifu",
+    "build_incident_report",
+    "build_eu_register_entry",
 ]
