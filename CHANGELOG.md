@@ -1,3 +1,32 @@
+## [3.1.1] — 2026-04-23
+
+### Fixed (breaking for direct 3.1.0 callers — zero known consumers)
+
+- `build_safety_benchmark`, `build_ifu`, `build_incident_report`, and
+  `build_eu_register_entry` now emit envelope shapes matching robot-md's
+  actual production artifact format. 3.1.0's minimal shapes did not align
+  with downstream consumers. Because 3.1.0 was published <24h ago and had
+  no adopters, this correction is released as a patch rather than a minor
+  bump. Any direct 3.1.0 caller must update kwargs — no compatibility shim.
+
+### Changed
+
+- `rcan.compliance` exports spec-domain constants: `ART13_COVERAGE`,
+  `VALID_SEVERITIES`, `REPORTING_DEADLINES`, `ART72_NOTE`,
+  `CONFORMITY_STATUS_DECLARED`, `SUBMISSION_INSTRUCTIONS`. Re-exported
+  from `rcan` top-level.
+- `build_safety_benchmark` signature:
+  `(*, iterations, thresholds, results, mode, generated_at, overall_pass)`.
+- `build_ifu` signature: 8 Art. 13(3) section kwargs + `generated_at`.
+  Auto-emits `art13_coverage`.
+- `build_incident_report` signature: `(*, rrn, incidents, generated_at)`.
+  Auto-computes `total_incidents` and `incidents_by_severity`.
+- `build_eu_register_entry` signature:
+  `(*, fria_ref, provider, system, annex_iii_basis, generated_at,
+  conformity_status=..., submission_instructions=...)`.
+
+---
+
 ## [3.1.0] — 2026-04-23
 
 ### Added

@@ -13,7 +13,7 @@ from __future__ import annotations
 SPEC_VERSION: str = "3.0"
 
 # SDK version (Python package)
-SDK_VERSION: str = "3.0.0"
+SDK_VERSION: str = "3.1.1"
 
 # v2.2 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
