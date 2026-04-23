@@ -1,3 +1,49 @@
+## [3.1.0] — 2026-04-23
+
+### Added
+
+- **`rcan.encoding.canonical_json(body)`** — deterministic UTF-8 bytes of
+  `json.dumps(body, sort_keys=True, separators=(",",":"), ensure_ascii=False)`.
+  The byte-parity invariants are pinned by the shared
+  `rcan-spec/fixtures/canonical-json-v1.json` fixture.
+- **`rcan.hybrid.sign_body(keypair, body, *, ed25519_secret, ed25519_public)`**
+  and **`rcan.hybrid.verify_body(signed, pq_signing_pub)`** — dict-level
+  wrappers around the low-level ML-DSA-65 + Ed25519 hybrid primitives in
+  `rcan.crypto`. Wire format matches RobotRegistryFoundation's
+  `/v2/*/register` endpoints.
+- **Four compliance artifact builders** in `rcan.compliance`:
+  `build_safety_benchmark` (§23), `build_ifu` (§24),
+  `build_incident_report` (§25), `build_eu_register_entry` (§26). All
+  additive; existing dataclasses untouched.
+- **Top-level re-exports** in `rcan.__init__`: `from rcan import
+  canonical_json, sign_body, verify_body, build_*` all work.
+
+### Why
+
+Ecosystem audit (2026-04-23) found robot-md 1.0.0 and
+RobotRegistryFoundation 1.10.0 had reimplemented canonical JSON, hybrid
+body signing, and the §22-26 envelope shapes locally — violating the
+"fix upstream first, no shims in downstream consumers" rule. 3.1.0 pulls
+all of it into the SDK.
+
+### Non-breaking
+
+All 3.0.x exports remain unchanged. `rcan/signing.py`'s v2.2-era
+message PKI module is untouched (its wrong-doctrine "Ed25519 deprecated"
+docstring is a future-release cleanup).
+
+### Downstream cleanup
+
+- `robot-md 1.0.1` (same release cycle) deletes local
+  `canonical_json`/`sign_body`/`verify_body` in `signing.py` and the
+  four local `build_*` functions, importing from `rcan` instead.
+- `rcan-ts 3.1.0` (same release cycle) ships the mirror API surface
+  (no compliance builders — YAGNI).
+- `RobotRegistryFoundation` (same cycle) swaps
+  `functions/_lib/verify.ts` for imports from `rcan-ts`.
+
+---
+
 ## [3.0.1] — 2026-04-23
 
 ### Fixed
