@@ -1,3 +1,15 @@
+## [3.0.1] — 2026-04-23
+
+### Fixed
+
+- `rcan.__version__` now returns `"3.0.1"` to match the package version.
+  The 3.0.0 release shipped with `__version__ = "2.1.0"` in
+  `rcan/__init__.py` — cosmetic but confusing for downstream tooling
+  that reads the SDK version at runtime (e.g. robot-md's dependency
+  audit). No API change, no behavior change.
+
+---
+
 ## [3.0.0] — 2026-04-21
 
 ### Added
