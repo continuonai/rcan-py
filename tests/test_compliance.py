@@ -198,9 +198,20 @@ def test_fria_document_not_hashable():
         hash(doc)
 
 
-# ----- v3.1 compliance builder tests (§23, §24) -----
+# ----- v3.1 compliance builder tests (§23, §24, §25, §26) -----
 
-from rcan.compliance import build_ifu, build_safety_benchmark
+from rcan.compliance import (
+    ART13_COVERAGE,
+    ART72_NOTE,
+    CONFORMITY_STATUS_DECLARED,
+    REPORTING_DEADLINES,
+    SUBMISSION_INSTRUCTIONS,
+    VALID_SEVERITIES,
+    build_eu_register_entry,
+    build_ifu,
+    build_incident_report,
+    build_safety_benchmark,
+)
 
 
 def test_build_safety_benchmark_envelope_shape():
@@ -215,125 +226,165 @@ def test_build_safety_benchmark_envelope_shape():
             "p99_ms": 0.4, "max_ms": 0.5, "pass": True,
         },
     }
+    thresholds = {"estop_p95_ms": 100.0, "bounds_check_p95_ms": 5.0}
     out = build_safety_benchmark(
-        rrn="RRN-000000000042",
-        manifest_path="/path/to/ROBOT.md",
         iterations=20,
-        thresholds_ms={"estop": 100.0, "bounds_check": 5.0},
+        thresholds=thresholds,
         results=results,
+        mode="synthetic",
+        generated_at="2026-04-23T12:00:00.000000Z",
+        overall_pass=True,
     )
     assert out["schema"] == "rcan-safety-benchmark-v1"
-    assert out["rrn"] == "RRN-000000000042"
-    assert out["manifest_path"] == "/path/to/ROBOT.md"
+    assert out["generated_at"] == "2026-04-23T12:00:00.000000Z"
+    assert out["mode"] == "synthetic"
     assert out["iterations"] == 20
-    assert out["thresholds_ms"] == {"estop": 100.0, "bounds_check": 5.0}
-    assert out["paths"] == results
+    assert out["thresholds"] == thresholds
+    assert out["results"] == results
+    assert out["overall_pass"] is True
 
 
 def test_build_safety_benchmark_empty_results_ok():
-    """Empty results are valid (e.g., mid-implementation partial run)."""
+    """Empty results dict is valid (vacuous pass)."""
     out = build_safety_benchmark(
-        rrn="RRN-000000000001",
-        manifest_path="/x.md",
-        iterations=1,
-        thresholds_ms={},
+        iterations=20,
+        thresholds={},
         results={},
+        mode="synthetic",
+        generated_at="2026-04-23T12:00:00.000000Z",
+        overall_pass=True,
     )
-    assert out["paths"] == {}
     assert out["schema"] == "rcan-safety-benchmark-v1"
+    assert out["results"] == {}
+    assert out["overall_pass"] is True
 
 
 def test_build_ifu_envelope_shape():
-    """Returns rcan-ifu-v1 envelope with Art. 13(3) sections."""
-    sections = {
-        "provider_identity": {
-            "manufacturer": "ACME Robotics",
-            "author": "test@acme.com",
-        },
-        "intended_purpose": "Pick-and-place",
-        "capabilities": ["arm.pick", "arm.place"],
-        "safety_limits": {"payload_kg": 0.5},
-    }
+    """Returns rcan-ifu-v1 envelope with all 8 Art. 13(3) sections at top level."""
     out = build_ifu(
-        rrn="RRN-000000000042",
-        manifest_path="/robot/ROBOT.md",
-        sections=sections,
+        provider_identity={"manufacturer": "ACME Robotics", "contact": "test@acme.com"},
+        intended_purpose={"description": "Pick-and-place in warehouse"},
+        capabilities_and_limitations={"max_payload_kg": 0.5, "reach_m": 0.6},
+        accuracy_and_performance={"positioning_error_mm": 1.0},
+        human_oversight_measures={"estop": True, "supervision_required": True},
+        known_risks_and_misuse={"misuse_scenarios": ["unattended operation"]},
+        expected_lifetime={"years": 5},
+        maintenance_requirements={"interval_months": 6},
+        generated_at="2026-04-23T12:00:00.000000Z",
     )
     assert out["schema"] == "rcan-ifu-v1"
-    assert out["rrn"] == "RRN-000000000042"
-    assert out["manifest_path"] == "/robot/ROBOT.md"
-    assert out["sections"] == sections
+    assert out["generated_at"] == "2026-04-23T12:00:00.000000Z"
+    assert out["provider_identity"] == {"manufacturer": "ACME Robotics", "contact": "test@acme.com"}
+    assert out["intended_purpose"] == {"description": "Pick-and-place in warehouse"}
+    assert out["capabilities_and_limitations"] == {"max_payload_kg": 0.5, "reach_m": 0.6}
+    assert out["accuracy_and_performance"] == {"positioning_error_mm": 1.0}
+    assert out["human_oversight_measures"] == {"estop": True, "supervision_required": True}
+    assert out["known_risks_and_misuse"] == {"misuse_scenarios": ["unattended operation"]}
+    assert out["expected_lifetime"] == {"years": 5}
+    assert out["maintenance_requirements"] == {"interval_months": 6}
+    assert out["art13_coverage"] == list(ART13_COVERAGE)
 
 
-def test_build_ifu_includes_provider_identity():
-    """provider_identity sub-section is preserved verbatim in the envelope."""
+def test_build_ifu_art13_coverage_matches_constant():
+    """art13_coverage in output is list(ART13_COVERAGE)."""
     out = build_ifu(
-        rrn="RRN-000000000001",
-        manifest_path="/x.md",
-        sections={"provider_identity": {"manufacturer": "M", "author": "a@b"}},
+        provider_identity={},
+        intended_purpose={},
+        capabilities_and_limitations={},
+        accuracy_and_performance={},
+        human_oversight_measures={},
+        known_risks_and_misuse={},
+        expected_lifetime={},
+        maintenance_requirements={},
+        generated_at="2026-04-23T12:00:00.000000Z",
     )
-    assert out["sections"]["provider_identity"]["manufacturer"] == "M"
-
-
-# ----- v3.1 compliance builder tests (§25, §26) -----
-
-from rcan.compliance import build_eu_register_entry, build_incident_report
+    assert out["art13_coverage"] == list(ART13_COVERAGE)
+    assert len(out["art13_coverage"]) == 8
 
 
 def test_build_incident_report_envelope_shape():
+    """Returns rcan-incidents-v1 envelope with auto-computed counts and constants."""
     incidents = [
-        {
-            "incident_id": "INC-0001",
-            "date": "2026-04-20T10:00:00Z",
-            "severity": "minor",
-            "description": "grip slipped at 100g payload",
-            "mitigation": "tightened gripper preload",
-        }
+        {"severity": "life_health", "description": "arm collision", "occurred_at": "2026-04-20T10:00:00Z"},
+        {"severity": "other", "description": "sensor drift", "occurred_at": "2026-04-21T09:00:00Z"},
     ]
     out = build_incident_report(
         rrn="RRN-000000000042",
-        manifest_path="/x/ROBOT.md",
         incidents=incidents,
         generated_at="2026-04-23T12:00:00Z",
     )
     assert out["schema"] == "rcan-incidents-v1"
-    assert out["rrn"] == "RRN-000000000042"
-    assert out["manifest_path"] == "/x/ROBOT.md"
     assert out["generated_at"] == "2026-04-23T12:00:00Z"
+    assert out["rrn"] == "RRN-000000000042"
+    assert out["total_incidents"] == 2
+    assert out["incidents_by_severity"] == {"life_health": 1, "other": 1}
+    assert out["reporting_deadlines"] == dict(REPORTING_DEADLINES)
+    assert out["art72_note"] == ART72_NOTE
     assert out["incidents"] == incidents
-    assert out["count"] == 1
 
 
 def test_build_incident_report_empty_incidents_ok():
+    """Zero incidents: total_incidents==0, both severity buckets zero."""
     out = build_incident_report(
         rrn="RRN-000000000001",
-        manifest_path="/x.md",
         incidents=[],
         generated_at="2026-04-23T12:00:00Z",
     )
+    assert out["schema"] == "rcan-incidents-v1"
+    assert out["total_incidents"] == 0
+    assert out["incidents_by_severity"] == {"life_health": 0, "other": 0}
     assert out["incidents"] == []
-    assert out["count"] == 0
+
+
+def test_build_incident_report_unknown_severity_ignored():
+    """Unknown severity still counts toward total_incidents but not by_severity."""
+    out = build_incident_report(
+        rrn="RRN-000000000001",
+        incidents=[{"severity": "bogus", "description": "unknown"}],
+        generated_at="2026-04-23T12:00:00Z",
+    )
+    assert out["total_incidents"] == 1
+    assert out["incidents_by_severity"] == {"life_health": 0, "other": 0}
 
 
 def test_build_eu_register_entry_envelope_shape():
+    """Returns rcan-eu-register-v1 envelope with annex_iii_basis at top level."""
+    provider = {"name": "ACME Robotics", "contact": "legal@acme.com"}
     system = {
         "rrn": "RRN-000000000042",
-        "name": "bob",
-        "manufacturer": "ACME",
-        "annex_iii_basis": "safety_component",
+        "rrn_uri": "rcan://rrf.rcan.dev/RRN-000000000042",
+        "robot_name": "bob",
+        "rcan_version": "3.1.1",
+        "opencastor_version": "2026.4.22.1",
         "rcn_ids": ["RCN-000000000001"],
         "rmn": "RMN-000000000002",
+        "rhn_ids": [],
     }
     out = build_eu_register_entry(
-        rrn="RRN-000000000042",
-        manifest_path="/x/ROBOT.md",
-        fria_ref="file:./fria.pdf",
+        fria_ref="fria-RRN-000000000042.json",
+        provider=provider,
         system=system,
-        submitted_at="2026-04-23T12:00:00Z",
+        annex_iii_basis="safety_component",
+        generated_at="2026-04-23T12:00:00.000000Z",
     )
     assert out["schema"] == "rcan-eu-register-v1"
-    assert out["rrn"] == "RRN-000000000042"
-    assert out["manifest_path"] == "/x/ROBOT.md"
-    assert out["fria_ref"] == "file:./fria.pdf"
+    assert out["generated_at"] == "2026-04-23T12:00:00.000000Z"
+    assert out["fria_ref"] == "fria-RRN-000000000042.json"
+    assert out["provider"] == provider
     assert out["system"] == system
-    assert out["submitted_at"] == "2026-04-23T12:00:00Z"
+    assert out["annex_iii_basis"] == "safety_component"
+    assert out["conformity_status"] == CONFORMITY_STATUS_DECLARED
+    assert out["submission_instructions"] == SUBMISSION_INSTRUCTIONS
+
+
+def test_build_eu_register_entry_override_conformity_status():
+    """conformity_status can be overridden from the default."""
+    out = build_eu_register_entry(
+        fria_ref="fria.json",
+        provider={"name": "X", "contact": "x@x.com"},
+        system={"rrn": "RRN-000000000001"},
+        annex_iii_basis="safety_component",
+        generated_at="2026-04-23T12:00:00.000000Z",
+        conformity_status="provisional",
+    )
+    assert out["conformity_status"] == "provisional"

@@ -132,13 +132,18 @@ class EuRegisterEntry:
 
 
 # ----------------------------------------------------------------------
-# v3.1 — Artifact builder functions (§22-26)
+# v3.1 — Artifact builder functions (§23-26)
 #
-# These builders return canonical envelope dicts ready to be written to
-# disk as artifacts, signed via rcan.hybrid.sign_body, or posted to a
-# compliance registry endpoint. The measurement / filesystem / domain
-# logic stays in the caller (robot-md); these builders only shape
-# already-prepared input into the spec-defined envelopes.
+# These builders produce canonical envelope dicts ready to sign via
+# rcan.hybrid.sign_body or post to a compliance registry endpoint. The
+# measurement / filesystem / domain logic stays in the caller (robot-md);
+# these builders only shape already-prepared input into the spec-defined
+# wire format.
+#
+# 3.1.1 breaking change: the 3.1.0 envelopes did not match robot-md's
+# actual shipped artifact shapes. 3.1.1 corrects this before any consumer
+# adopted 3.1.0's builders. Downstream callers that relied on 3.1.0 will
+# need to update their call sites — no compatibility shim is provided.
 # ----------------------------------------------------------------------
 
 SAFETY_BENCHMARK_SCHEMA = "rcan-safety-benchmark-v1"
@@ -146,125 +151,196 @@ IFU_SCHEMA = "rcan-ifu-v1"
 INCIDENT_REPORT_SCHEMA = "rcan-incidents-v1"
 EU_REGISTER_SCHEMA = "rcan-eu-register-v1"
 
+# §24 Art. 13(3) — the 8 IFU sections EU AI Act mandates.
+ART13_COVERAGE: tuple[str, ...] = (
+    "provider_identity",
+    "intended_purpose",
+    "capabilities_and_limitations",
+    "accuracy_and_performance",
+    "human_oversight_measures",
+    "known_risks_and_misuse",
+    "expected_lifetime",
+    "maintenance_requirements",
+)
+
+# §25 Art. 72 — post-market incident severities and their reporting deadlines.
+VALID_SEVERITIES: tuple[str, ...] = ("life_health", "other")
+REPORTING_DEADLINES: dict[str, str] = {
+    "life_health": "15 days from incident timestamp",
+    "other": "90 days from incident timestamp",
+}
+ART72_NOTE: str = (
+    "Providers must report serious incidents to the relevant national "
+    "authority within the applicable deadline per EU AI Act Art. 72."
+)
+
+# §26 Art. 49 — EU register submission defaults.
+CONFORMITY_STATUS_DECLARED: str = "declared"
+SUBMISSION_INSTRUCTIONS: str = (
+    "Submit this package to the EU AI Act database at "
+    "https://ec.europa.eu/digital-strategy/en/policies/european-ai-act. "
+    "Include the referenced rcan-fria-v1 JSON as an attachment."
+)
+
 
 def build_safety_benchmark(
     *,
-    rrn: str,
-    manifest_path: str,
     iterations: int,
-    thresholds_ms: dict,
+    thresholds: dict,
     results: dict,
+    mode: str,
+    generated_at: str,
+    overall_pass: bool,
 ) -> dict:
     """Build an ``rcan-safety-benchmark-v1`` envelope (§23).
 
     Args:
-        rrn: Robot Resource Name of the subject robot.
-        manifest_path: Path to the ROBOT.md that was benchmarked.
         iterations: Number of samples per path.
-        thresholds_ms: Path name → threshold milliseconds.
+        thresholds: Threshold dict keyed by ``{path}_p95_ms`` (caller
+            supplies the suffix — robot-md's wire format bakes p95 into
+            the key name).
         results: Path name → stats dict with min_ms / mean_ms / p95_ms /
-                 p99_ms / max_ms / pass. Caller measures and pre-rounds.
+            p99_ms / max_ms / pass. Caller measures and pre-rounds.
+        mode: Run mode, e.g. "synthetic" or "hardware".
+        generated_at: ISO 8601 UTC timestamp (caller generates).
+        overall_pass: Whether every path passed its threshold.
 
     Returns:
         Dict conforming to §23 schema. Ready to serialize or sign.
     """
     return {
         "schema": SAFETY_BENCHMARK_SCHEMA,
-        "rrn": rrn,
-        "manifest_path": manifest_path,
+        "generated_at": generated_at,
+        "mode": mode,
         "iterations": iterations,
-        "thresholds_ms": thresholds_ms,
-        "paths": results,
+        "thresholds": thresholds,
+        "results": results,
+        "overall_pass": overall_pass,
     }
 
 
 def build_ifu(
     *,
-    rrn: str,
-    manifest_path: str,
-    sections: dict,
+    provider_identity: dict,
+    intended_purpose: dict,
+    capabilities_and_limitations: dict,
+    accuracy_and_performance: dict,
+    human_oversight_measures: dict,
+    known_risks_and_misuse: dict,
+    expected_lifetime: dict,
+    maintenance_requirements: dict,
+    generated_at: str,
 ) -> dict:
     """Build an ``rcan-ifu-v1`` envelope (§24 — EU AI Act Art. 13(3) IFU).
 
+    All 8 Art. 13(3) sections are required top-level dict fields. The
+    builder emits ``art13_coverage`` automatically from ``ART13_COVERAGE``.
+
     Args:
-        rrn: Robot Resource Name.
-        manifest_path: Source ROBOT.md path.
-        sections: All Art. 13(3) sections. Caller provides; builder does
-                  not validate sub-structure (that's robot-md's job).
+        provider_identity: Art. 13(3)(a) provider identity block.
+        intended_purpose: Art. 13(3)(b) intended purpose block.
+        capabilities_and_limitations: Art. 13(3)(c).
+        accuracy_and_performance: Art. 13(3)(d).
+        human_oversight_measures: Art. 13(3)(e).
+        known_risks_and_misuse: Art. 13(3)(f).
+        expected_lifetime: Art. 13(3)(g).
+        maintenance_requirements: Art. 13(3)(h).
+        generated_at: ISO 8601 UTC timestamp.
 
     Returns:
         Dict conforming to §24 schema.
     """
     return {
         "schema": IFU_SCHEMA,
-        "rrn": rrn,
-        "manifest_path": manifest_path,
-        "sections": sections,
+        "generated_at": generated_at,
+        "art13_coverage": list(ART13_COVERAGE),
+        "provider_identity": provider_identity,
+        "intended_purpose": intended_purpose,
+        "capabilities_and_limitations": capabilities_and_limitations,
+        "accuracy_and_performance": accuracy_and_performance,
+        "human_oversight_measures": human_oversight_measures,
+        "known_risks_and_misuse": known_risks_and_misuse,
+        "expected_lifetime": expected_lifetime,
+        "maintenance_requirements": maintenance_requirements,
     }
 
 
 def build_incident_report(
     *,
     rrn: str,
-    manifest_path: str,
     incidents: list[dict],
     generated_at: str,
 ) -> dict:
     """Build an ``rcan-incidents-v1`` envelope (§25 — Art. 72 post-market).
 
+    Auto-computes ``total_incidents`` and ``incidents_by_severity``.
+    Unknown severities are silently ignored (mirrors robot-md behavior).
+
     Args:
         rrn: Robot Resource Name.
-        manifest_path: Source ROBOT.md path.
-        incidents: List of incident dicts. Caller provides; builder does
-                   not validate sub-structure.
+        incidents: List of incident entry dicts (each has ``severity``).
         generated_at: ISO 8601 UTC timestamp of report generation.
 
     Returns:
-        Dict conforming to §25 schema with a ``count`` field for quick
-        consumer summaries.
+        Dict conforming to §25 schema with reporting deadlines and Art. 72
+        note attached from module constants.
     """
+    by_severity: dict[str, int] = dict.fromkeys(VALID_SEVERITIES, 0)
+    for entry in incidents:
+        sev = entry.get("severity")
+        if sev in by_severity:
+            by_severity[sev] += 1
     return {
         "schema": INCIDENT_REPORT_SCHEMA,
-        "rrn": rrn,
-        "manifest_path": manifest_path,
         "generated_at": generated_at,
-        "count": len(incidents),
-        "incidents": incidents,
+        "rrn": rrn,
+        "total_incidents": len(incidents),
+        "incidents_by_severity": by_severity,
+        "reporting_deadlines": dict(REPORTING_DEADLINES),
+        "art72_note": ART72_NOTE,
+        "incidents": list(incidents),
     }
 
 
 def build_eu_register_entry(
     *,
-    rrn: str,
-    manifest_path: str,
     fria_ref: str,
+    provider: dict,
     system: dict,
-    submitted_at: str,
+    annex_iii_basis: str,
+    generated_at: str,
+    conformity_status: str = CONFORMITY_STATUS_DECLARED,
+    submission_instructions: str = SUBMISSION_INSTRUCTIONS,
 ) -> dict:
     """Build an ``rcan-eu-register-v1`` envelope (§26 — Art. 49 EU Register).
 
     Args:
-        rrn: Robot Resource Name.
-        manifest_path: Source ROBOT.md path.
-        fria_ref: URI reference to the FRIA artifact (file: or http URI).
-        system: System-block dict (rrn, name, manufacturer, annex_iii_basis,
-                optional rcn_ids / rmn / rhn_ids).
-        submitted_at: ISO 8601 UTC timestamp of submission.
+        fria_ref: Basename of the signed rcan-fria-v1 JSON to attach.
+        provider: Provider block — ``{name, contact}``.
+        system: System block — ``{rrn, rrn_uri, robot_name, rcan_version,
+            opencastor_version, rcn_ids, rmn, rhn_ids}``.
+        annex_iii_basis: The Annex III high-risk category string.
+        generated_at: ISO 8601 UTC timestamp.
+        conformity_status: Defaults to "declared".
+        submission_instructions: Defaults to the EU database blurb.
 
     Returns:
         Dict conforming to §26 schema.
     """
     return {
         "schema": EU_REGISTER_SCHEMA,
-        "rrn": rrn,
-        "manifest_path": manifest_path,
+        "generated_at": generated_at,
         "fria_ref": fria_ref,
-        "submitted_at": submitted_at,
+        "provider": provider,
         "system": system,
+        "annex_iii_basis": annex_iii_basis,
+        "conformity_status": conformity_status,
+        "submission_instructions": submission_instructions,
     }
 
 
 __all__ = [
+    # v3.0 dataclasses
     "FriaSigningKey",
     "FriaConformance",
     "FriaDocument",
@@ -272,10 +348,19 @@ __all__ = [
     "InstructionsForUse",
     "PostMarketIncident",
     "EuRegisterEntry",
+    # v3.1 schema constants
     "SAFETY_BENCHMARK_SCHEMA",
     "IFU_SCHEMA",
     "INCIDENT_REPORT_SCHEMA",
     "EU_REGISTER_SCHEMA",
+    # v3.1 spec-domain constants
+    "ART13_COVERAGE",
+    "VALID_SEVERITIES",
+    "REPORTING_DEADLINES",
+    "ART72_NOTE",
+    "CONFORMITY_STATUS_DECLARED",
+    "SUBMISSION_INSTRUCTIONS",
+    # v3.1 builders
     "build_safety_benchmark",
     "build_ifu",
     "build_incident_report",

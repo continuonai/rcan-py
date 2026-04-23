@@ -54,6 +54,12 @@ from rcan.compliance import (
 # v3.1 — consolidation: dict-level hybrid signing + canonical JSON +
 # compliance artifact builders. See CHANGELOG [3.1.0] for rationale.
 from rcan.compliance import (
+    ART13_COVERAGE,
+    ART72_NOTE,
+    CONFORMITY_STATUS_DECLARED,
+    REPORTING_DEADLINES,
+    SUBMISSION_INSTRUCTIONS,
+    VALID_SEVERITIES,
     build_eu_register_entry,
     build_ifu,
     build_incident_report,
@@ -257,7 +263,7 @@ from rcan.types import RCANAgentConfig, RCANConfig, RCANMessageEnvelope, RCANMet
 from rcan.version import SPEC_VERSION, SUPPORTED_FEATURES
 from rcan.watermark import compute_watermark_token, verify_token_format, verify_via_api
 
-__version__ = "3.1.0"
+__version__ = "3.1.1"
 __spec_version__ = "3.0"
 
 __all__ = [
@@ -291,6 +297,13 @@ __all__ = [
     "canonical_json",
     "sign_body",
     "verify_body",
+    # v3.1 spec-domain constants
+    "ART13_COVERAGE",
+    "VALID_SEVERITIES",
+    "REPORTING_DEADLINES",
+    "ART72_NOTE",
+    "CONFORMITY_STATUS_DECLARED",
+    "SUBMISSION_INSTRUCTIONS",
     # Audit
     "CommitmentRecord",
     # Gates
