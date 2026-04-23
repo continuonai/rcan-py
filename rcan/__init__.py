@@ -50,6 +50,18 @@ from rcan.compliance import (
     PostMarketIncident,
     SafetyBenchmark,
 )
+
+# v3.1 — consolidation: dict-level hybrid signing + canonical JSON +
+# compliance artifact builders. See CHANGELOG [3.1.0] for rationale.
+from rcan.compliance import (
+    build_eu_register_entry,
+    build_ifu,
+    build_incident_report,
+    build_safety_benchmark,
+)
+from rcan.encoding import canonical_json
+from rcan.hybrid import sign_body, verify_body
+
 from rcan.address import RobotURI
 from rcan.manifest import ManifestInfo, from_manifest
 from rcan.audit import CommitmentRecord
@@ -271,6 +283,14 @@ __all__ = [
     "EuRegisterEntry",
     "RegistryRegisterPayload",
     "make_registry_register",
+    # v3.1 — Consolidation API: builders + hybrid signing + canonical JSON
+    "build_safety_benchmark",
+    "build_ifu",
+    "build_incident_report",
+    "build_eu_register_entry",
+    "canonical_json",
+    "sign_body",
+    "verify_body",
     # Audit
     "CommitmentRecord",
     # Gates
