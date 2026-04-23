@@ -196,3 +196,80 @@ def test_fria_document_not_hashable():
     )
     with pytest.raises(TypeError):
         hash(doc)
+
+
+# ----- v3.1 compliance builder tests (§23, §24) -----
+
+from rcan.compliance import build_ifu, build_safety_benchmark
+
+
+def test_build_safety_benchmark_envelope_shape():
+    """Returns rcan-safety-benchmark-v1 envelope around passed-in path stats."""
+    results = {
+        "estop": {
+            "min_ms": 0.1, "mean_ms": 0.2, "p95_ms": 0.3,
+            "p99_ms": 0.4, "max_ms": 0.5, "pass": True,
+        },
+        "bounds_check": {
+            "min_ms": 0.1, "mean_ms": 0.2, "p95_ms": 0.3,
+            "p99_ms": 0.4, "max_ms": 0.5, "pass": True,
+        },
+    }
+    out = build_safety_benchmark(
+        rrn="RRN-000000000042",
+        manifest_path="/path/to/ROBOT.md",
+        iterations=20,
+        thresholds_ms={"estop": 100.0, "bounds_check": 5.0},
+        results=results,
+    )
+    assert out["schema"] == "rcan-safety-benchmark-v1"
+    assert out["rrn"] == "RRN-000000000042"
+    assert out["manifest_path"] == "/path/to/ROBOT.md"
+    assert out["iterations"] == 20
+    assert out["thresholds_ms"] == {"estop": 100.0, "bounds_check": 5.0}
+    assert out["paths"] == results
+
+
+def test_build_safety_benchmark_empty_results_ok():
+    """Empty results are valid (e.g., mid-implementation partial run)."""
+    out = build_safety_benchmark(
+        rrn="RRN-000000000001",
+        manifest_path="/x.md",
+        iterations=1,
+        thresholds_ms={},
+        results={},
+    )
+    assert out["paths"] == {}
+    assert out["schema"] == "rcan-safety-benchmark-v1"
+
+
+def test_build_ifu_envelope_shape():
+    """Returns rcan-ifu-v1 envelope with Art. 13(3) sections."""
+    sections = {
+        "provider_identity": {
+            "manufacturer": "ACME Robotics",
+            "author": "test@acme.com",
+        },
+        "intended_purpose": "Pick-and-place",
+        "capabilities": ["arm.pick", "arm.place"],
+        "safety_limits": {"payload_kg": 0.5},
+    }
+    out = build_ifu(
+        rrn="RRN-000000000042",
+        manifest_path="/robot/ROBOT.md",
+        sections=sections,
+    )
+    assert out["schema"] == "rcan-ifu-v1"
+    assert out["rrn"] == "RRN-000000000042"
+    assert out["manifest_path"] == "/robot/ROBOT.md"
+    assert out["sections"] == sections
+
+
+def test_build_ifu_includes_provider_identity():
+    """provider_identity sub-section is preserved verbatim in the envelope."""
+    out = build_ifu(
+        rrn="RRN-000000000001",
+        manifest_path="/x.md",
+        sections={"provider_identity": {"manufacturer": "M", "author": "a@b"}},
+    )
+    assert out["sections"]["provider_identity"]["manufacturer"] == "M"

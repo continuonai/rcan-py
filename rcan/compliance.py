@@ -130,6 +130,79 @@ class EuRegisterEntry:
     registered_at: str             # ISO-8601
 
 
+
+# ----------------------------------------------------------------------
+# v3.1 — Artifact builder functions (§22-26)
+#
+# These builders return canonical envelope dicts ready to be written to
+# disk as artifacts, signed via rcan.hybrid.sign_body, or posted to a
+# compliance registry endpoint. The measurement / filesystem / domain
+# logic stays in the caller (robot-md); these builders only shape
+# already-prepared input into the spec-defined envelopes.
+# ----------------------------------------------------------------------
+
+SAFETY_BENCHMARK_SCHEMA = "rcan-safety-benchmark-v1"
+IFU_SCHEMA = "rcan-ifu-v1"
+INCIDENT_REPORT_SCHEMA = "rcan-incidents-v1"
+EU_REGISTER_SCHEMA = "rcan-eu-register-v1"
+
+
+def build_safety_benchmark(
+    *,
+    rrn: str,
+    manifest_path: str,
+    iterations: int,
+    thresholds_ms: dict,
+    results: dict,
+) -> dict:
+    """Build an ``rcan-safety-benchmark-v1`` envelope (§23).
+
+    Args:
+        rrn: Robot Resource Name of the subject robot.
+        manifest_path: Path to the ROBOT.md that was benchmarked.
+        iterations: Number of samples per path.
+        thresholds_ms: Path name → threshold milliseconds.
+        results: Path name → stats dict with min_ms / mean_ms / p95_ms /
+                 p99_ms / max_ms / pass. Caller measures and pre-rounds.
+
+    Returns:
+        Dict conforming to §23 schema. Ready to serialize or sign.
+    """
+    return {
+        "schema": SAFETY_BENCHMARK_SCHEMA,
+        "rrn": rrn,
+        "manifest_path": manifest_path,
+        "iterations": iterations,
+        "thresholds_ms": thresholds_ms,
+        "paths": results,
+    }
+
+
+def build_ifu(
+    *,
+    rrn: str,
+    manifest_path: str,
+    sections: dict,
+) -> dict:
+    """Build an ``rcan-ifu-v1`` envelope (§24 — EU AI Act Art. 13(3) IFU).
+
+    Args:
+        rrn: Robot Resource Name.
+        manifest_path: Source ROBOT.md path.
+        sections: All Art. 13(3) sections. Caller provides; builder does
+                  not validate sub-structure (that's robot-md's job).
+
+    Returns:
+        Dict conforming to §24 schema.
+    """
+    return {
+        "schema": IFU_SCHEMA,
+        "rrn": rrn,
+        "manifest_path": manifest_path,
+        "sections": sections,
+    }
+
+
 __all__ = [
     "FriaSigningKey",
     "FriaConformance",
@@ -138,4 +211,10 @@ __all__ = [
     "InstructionsForUse",
     "PostMarketIncident",
     "EuRegisterEntry",
+    "SAFETY_BENCHMARK_SCHEMA",
+    "IFU_SCHEMA",
+    "INCIDENT_REPORT_SCHEMA",
+    "EU_REGISTER_SCHEMA",
+    "build_safety_benchmark",
+    "build_ifu",
 ]
