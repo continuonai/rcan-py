@@ -127,6 +127,11 @@ class ManifestInfo:
     Fields are `None` when the manifest doesn't declare them (e.g. an
     unregistered robot has no `rrn`). The raw `frontmatter` dict is always
     available for callers that need fields beyond this shortcut set.
+
+    ``agent_runtimes`` is the normalized list of per-runtime agent declarations
+    from the ``agent:`` block. ``None`` if the manifest has no agent block.
+    Flat form is auto-normalized to a single entry (with ``DeprecationWarning``
+    emitted at parse time).
     """
 
     rrn: str | None
@@ -136,6 +141,7 @@ class ManifestInfo:
     public_resolver: str | None
     robot_name: str | None
     rcan_version: str | None
+    agent_runtimes: list[dict[str, Any]] | None
     frontmatter: dict[str, Any]
 
 
@@ -180,6 +186,15 @@ def from_manifest(path: str | Path) -> ManifestInfo:
     metadata = fm.get("metadata") or {}
     network = fm.get("network") or {}
 
+    agent_block = fm.get("agent")
+    agent_runtimes = _normalize_agent(agent_block)
+    if agent_runtimes is not None:
+        errors = _validate_agent_runtimes(agent_runtimes)
+        if errors:
+            raise ValueError(
+                "agent.runtimes[] validation failed: " + "; ".join(errors)
+            )
+
     rrn = metadata.get("rrn") or None
     rcan_uri = metadata.get("rcan_uri") or None
     endpoint = network.get("rrf_endpoint") or None
@@ -197,5 +212,6 @@ def from_manifest(path: str | Path) -> ManifestInfo:
         public_resolver=public_resolver,
         robot_name=robot_name,
         rcan_version=rcan_version,
+        agent_runtimes=agent_runtimes,
         frontmatter=fm,
     )
