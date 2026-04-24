@@ -263,8 +263,8 @@ from rcan.types import RCANAgentConfig, RCANConfig, RCANMessageEnvelope, RCANMet
 from rcan.version import SPEC_VERSION, SUPPORTED_FEATURES
 from rcan.watermark import compute_watermark_token, verify_token_format, verify_via_api
 
-__version__ = "3.1.1"
-__spec_version__ = "3.0"
+__version__ = "3.2.0"
+__spec_version__ = "3.1"
 
 __all__ = [
     # Address

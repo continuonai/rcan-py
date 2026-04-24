@@ -1,3 +1,30 @@
+## [3.2.0] — 2026-04-24
+
+### Changed (breaking for §26 callers)
+
+- `build_eu_register_entry` now requires `rmn: str` as a keyword argument.
+  rcan-spec v3.1 adds a required top-level `rmn` field to the
+  `rcan-eu-register-v1` envelope so Art. 49 registrations can be routed
+  per-model. `system.rrn` remains for per-submission provenance. This is
+  a breaking change to §26 per rcan-spec MINOR versioning; §26 was
+  introduced in v3.0 13 days ago as Experimental tier with zero
+  production consumers at bump time.
+- `EuRegisterEntry` dataclass unchanged (it was a summary record, not the
+  builder envelope).
+- `SPEC_VERSION` → `"3.1"`.
+- Byte-parity: rcan-eu-register-v1 envelopes built with this version
+  differ byte-for-byte from 3.1.1 envelopes. The rcan-spec
+  `compliance-v1.json` fixture is regenerated against 3.2.0.
+
+### Cross-language coordination
+
+- rcan-ts 3.3.0 (to follow) will match this envelope shape and verify
+  byte-parity against the regenerated rcan-spec fixture.
+- RRF D3 will consume rcan-ts 3.3.0 to expose
+  `/v2/models/:rmn/eu-register`.
+
+---
+
 ## [3.1.1] — 2026-04-23
 
 ### Fixed (breaking for direct 3.1.0 callers — zero known consumers)

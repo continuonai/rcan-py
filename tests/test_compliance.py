@@ -361,6 +361,7 @@ def test_build_eu_register_entry_envelope_shape():
         "rhn_ids": [],
     }
     out = build_eu_register_entry(
+        rmn="RMN-000000000002",
         fria_ref="fria-RRN-000000000042.json",
         provider=provider,
         system=system,
@@ -369,6 +370,7 @@ def test_build_eu_register_entry_envelope_shape():
     )
     assert out["schema"] == "rcan-eu-register-v1"
     assert out["generated_at"] == "2026-04-23T12:00:00.000000Z"
+    assert out["rmn"] == "RMN-000000000002"
     assert out["fria_ref"] == "fria-RRN-000000000042.json"
     assert out["provider"] == provider
     assert out["system"] == system
@@ -380,6 +382,7 @@ def test_build_eu_register_entry_envelope_shape():
 def test_build_eu_register_entry_override_conformity_status():
     """conformity_status can be overridden from the default."""
     out = build_eu_register_entry(
+        rmn="RMN-000000000002",
         fria_ref="fria.json",
         provider={"name": "X", "contact": "x@x.com"},
         system={"rrn": "RRN-000000000001"},
@@ -388,3 +391,16 @@ def test_build_eu_register_entry_override_conformity_status():
         conformity_status="provisional",
     )
     assert out["conformity_status"] == "provisional"
+
+
+def test_build_eu_register_entry_requires_rmn():
+    """rmn is required as of rcan-spec v3.1 for per-model Art. 49 routing."""
+    import pytest
+    with pytest.raises(TypeError):
+        build_eu_register_entry(  # type: ignore[call-arg]
+            fria_ref="fria.json",
+            provider={"name": "X", "contact": "x@x.com"},
+            system={"rrn": "RRN-000000000001"},
+            annex_iii_basis="safety_component",
+            generated_at="2026-04-23T12:00:00.000000Z",
+        )

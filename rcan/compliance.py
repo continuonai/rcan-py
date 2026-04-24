@@ -304,6 +304,7 @@ def build_incident_report(
 
 def build_eu_register_entry(
     *,
+    rmn: str,
     fria_ref: str,
     provider: dict,
     system: dict,
@@ -314,7 +315,15 @@ def build_eu_register_entry(
 ) -> dict:
     """Build an ``rcan-eu-register-v1`` envelope (§26 — Art. 49 EU Register).
 
+    Art. 49 registration is scoped per AI system (per model), not per
+    individual robot. ``rmn`` identifies the model being registered;
+    ``system.rrn`` records which specific robot produced the submission
+    (provenance only).
+
     Args:
+        rmn: Robot Model Number — the model registered under Art. 49.
+            Format: ``RMN-XXXXXXXXXXXX`` (12 digits). Required as of
+            rcan-spec v3.1.
         fria_ref: Basename of the signed rcan-fria-v1 JSON to attach.
         provider: Provider block — ``{name, contact}``.
         system: System block — ``{rrn, rrn_uri, robot_name, rcan_version,
@@ -325,11 +334,12 @@ def build_eu_register_entry(
         submission_instructions: Defaults to the EU database blurb.
 
     Returns:
-        Dict conforming to §26 schema.
+        Dict conforming to §26 v3.1 schema.
     """
     return {
         "schema": EU_REGISTER_SCHEMA,
         "generated_at": generated_at,
+        "rmn": rmn,
         "fria_ref": fria_ref,
         "provider": provider,
         "system": system,
