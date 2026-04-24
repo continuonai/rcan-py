@@ -1,3 +1,23 @@
+## [3.3.0] — 2026-04-23
+
+### Added
+- `ManifestInfo.agent_runtimes: list[dict] | None` — the normalized `agent.runtimes[]` list from the ROBOT.md frontmatter. Matches rcan-spec v3.2 §8.6 Multi-Runtime Agent Declaration.
+- `rcan.manifest._normalize_agent` — normalizes the `agent:` block. Structured `runtimes[]` returned as-is. Flat `agent.provider`/`agent.model` form is auto-wrapped into a single-entry `runtimes[]` with `default: true` and emits `DeprecationWarning`. Mixed-form (both flat AND runtimes[]) raises `ValueError`.
+- `rcan.manifest._validate_agent_runtimes` — enforces required `id` + `harness`, and exactly-one-default when multiple entries are declared.
+
+### Changed
+- `SPEC_VERSION`: `"3.1"` → `"3.2"`
+- `SDK_VERSION` / package version: `"3.2.0"` → `"3.3.0"`
+- `from_manifest()` now validates the `agent:` block; invalid `runtimes[]` (missing id/harness or wrong number of defaults) raises `ValueError`.
+
+### Deprecated
+- Flat `agent.provider` / `agent.model` form in ROBOT.md frontmatter. Still valid in v3.2 with a `DeprecationWarning`; scheduled for removal in rcan-spec v4.0.
+
+### Unchanged
+- §22–§26 compliance builders (`build_fria`, `build_safety_benchmark`, `build_ifu`, `build_incident_report`, `build_eu_register_entry`)
+- Canonical JSON + ML-DSA-65 hybrid signing (`rcan.canonical`, `rcan.crypto`)
+- `tests/fixtures/compliance-v1.json` byte parity (no regeneration this release)
+
 ## [3.2.0] — 2026-04-24
 
 ### Changed (breaking for §26 callers)
