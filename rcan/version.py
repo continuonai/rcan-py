@@ -10,10 +10,10 @@ Spec: https://rcan.dev/spec#section-3-5
 from __future__ import annotations
 
 # RCAN specification version this SDK implements.
-SPEC_VERSION: str = "3.1"
+SPEC_VERSION: str = "3.2"
 
 # SDK version (Python package)
-SDK_VERSION: str = "3.2.0"
+SDK_VERSION: str = "3.3.0"
 
 # v2.2 feature flags
 SUPPORTED_FEATURES: frozenset[str] = frozenset(
