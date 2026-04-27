@@ -61,12 +61,18 @@ def sign_body(
     ``pq_kid`` (first 8 hex of sha256(pq_signing_pub)), and ``sig``
     (dict with ``ml_dsa``, ``ed25519``, ``ed25519_pub``, all base64).
 
-    The signed message is ``canonical_json({**body, pq_signing_pub,
-    pq_kid})``. :func:`verify_body` reconstructs that exact byte sequence.
+    The signed message is ``canonical_json({**body_without_sig,
+    pq_signing_pub, pq_kid})`` — any pre-existing ``sig`` field in
+    ``body`` is stripped before canonicalizing, mirroring
+    :func:`verify_body`. :func:`verify_body` reconstructs that exact
+    byte sequence. Callers may safely pass dataclass-asdict bodies that
+    include placeholder ``sig: {}`` fields; the placeholder is ignored.
 
     Args:
         keypair: ML-DSA-65 keypair. Must have ``_secret_key`` populated.
-        body: Wire body to sign. Caller retains ownership; a copy is returned.
+        body: Wire body to sign. A copy is returned with sig + pq_* added.
+            Any pre-existing ``sig`` field is stripped before canonicalizing
+            (symmetric with :func:`verify_body`).
         ed25519_secret: 32 bytes, raw Ed25519 private key.
         ed25519_public: 32 bytes, raw Ed25519 public key.
 
