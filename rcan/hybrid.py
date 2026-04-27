@@ -18,9 +18,11 @@ Wire format produced by :func:`sign_body`::
         },
     }
 
-The signature is over ``canonical_json({**body, pq_signing_pub, pq_kid})``.
-:func:`verify_body` strips only ``sig`` before re-canonicalizing, so the
-signed bytes are reconstructed exactly.
+Both :func:`sign_body` and :func:`verify_body` strip any pre-existing
+``sig`` key from the body before canonicalizing. Symmetric stripping
+ensures dataclass emitters that materialize ``sig: dict = {}`` placeholder
+fields (e.g. ``dataclasses.asdict()`` on a signed-envelope dataclass) round-
+trip cleanly.
 
 This shape is wire-compatible with RobotRegistryFoundation's
 ``functions/v2/*/register.ts`` endpoints.
@@ -76,7 +78,12 @@ def sign_body(
     """
     pq_pub_b64 = base64.b64encode(keypair.public_key_bytes).decode("ascii")
     pq_kid = _kid_from_pub(keypair.public_key_bytes)
-    body_with_ids = {**body, "pq_signing_pub": pq_pub_b64, "pq_kid": pq_kid}
+    # Strip any pre-existing `sig` field so the signed bytes match the bytes
+    # verify_body reconstructs (which always strips `sig`). Without this,
+    # callers that pass a body materialized from a dataclass with a `sig: {}`
+    # placeholder produce signatures that fail to verify.
+    body_clean = {k: v for k, v in body.items() if k != "sig"}
+    body_with_ids = {**body_clean, "pq_signing_pub": pq_pub_b64, "pq_kid": pq_kid}
     message = canonical_json(body_with_ids)
     hs = sign_hybrid(keypair, ed25519_secret, message)
     return {

@@ -1,3 +1,27 @@
+## [3.3.1] — 2026-04-27
+
+### Fixed
+
+- `rcan.hybrid.sign_body` now strips any pre-existing `sig` key from the body
+  before canonicalizing, mirroring `verify_body`'s long-standing behavior.
+  Bodies materialized via `dataclasses.asdict()` on a signed-envelope
+  dataclass (where `sig: dict` defaults to `{}`) previously produced
+  signatures whose canonical bytes included the empty `sig: {}` placeholder,
+  while `verify_body` reconstructed the canonical bytes without it. Hashes
+  diverged → every such signed artifact failed verification at the registry.
+  All robot-md ≥ 1.2.2 callers of FRIA / IFU / safety-benchmark /
+  incident-report / EU-register builders were affected.
+
+### Notes
+
+- Wire-format compatible with 3.3.0: a 3.3.0 signature over a body without a
+  `sig` placeholder still verifies under 3.3.1 unchanged. Only the
+  previously-unverifiable placeholder case becomes verifiable.
+- No SPEC_VERSION change. SDK_VERSION 3.3.0 → 3.3.1.
+- Existing 3.3.0-signed artifacts with the placeholder pattern will need
+  to be re-emitted with 3.3.1 to verify. Per memory's runtime-change
+  protocol, RCAN-bearing robots must re-emit + re-submit after this bump.
+
 ## [3.3.0] — 2026-04-23
 
 ### Added
