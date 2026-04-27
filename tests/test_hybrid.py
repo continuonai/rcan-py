@@ -86,3 +86,44 @@ def test_sign_body_pq_kid_is_first_8_hex_of_sha256(mldsa_keypair, ed25519_keypai
     )
     expected_kid = hashlib.sha256(mldsa_keypair.public_key_bytes).hexdigest()[:8]
     assert signed["pq_kid"] == expected_kid
+
+
+# ---- regression: sign_body / verify_body asymmetry on `sig` placeholder ----
+# Discovered 2026-04-27 — robot-md 1.2.2 emitters pass dataclass-asdict bodies
+# that include `sig: {}` placeholder fields. sign_body in rcan-py 3.3.0 included
+# that placeholder in the canonical bytes; verify_body strips `sig` before
+# canonicalizing. The hashes diverged → every signed artifact failed verify.
+
+def test_sign_body_strips_sig_placeholder(mldsa_keypair, ed25519_keypair):
+    """Body containing `sig: {}` placeholder must produce a verifiable signature.
+
+    This is the exact pattern robot-md FRIA/IFU/benchmarks/eu-register emit code
+    creates via dataclasses.asdict(doc) on a dataclass with `sig: dict = {}`.
+    """
+    ed_sec, ed_pub = ed25519_keypair
+    body_with_placeholder = {"hello": "world", "n": 42, "sig": {}}
+    signed = sign_body(mldsa_keypair, body_with_placeholder, ed25519_secret=ed_sec, ed25519_public=ed_pub)
+    assert verify_body(signed, base64.b64decode(signed["pq_signing_pub"])) is True
+
+
+def test_sign_body_clean_body_unchanged(mldsa_keypair, ed25519_keypair):
+    """Behavior on body without sig must be identical to pre-3.3.1 — verifies cleanly."""
+    ed_sec, ed_pub = ed25519_keypair
+    signed = sign_body(mldsa_keypair, {"hello": "world", "n": 42}, ed25519_secret=ed_sec, ed25519_public=ed_pub)
+    assert verify_body(signed, base64.b64decode(signed["pq_signing_pub"])) is True
+
+
+def test_sign_body_sig_content_irrelevant(mldsa_keypair, ed25519_keypair):
+    """The content of an existing `sig` field in body must not affect verifiability.
+
+    sign_body strips `sig` before canonicalizing, so {} vs {"garbage": "values"}
+    in body both produce signatures that verify. (The signatures themselves may
+    differ due to ML-DSA randomness — only verify success matters.)
+    """
+    ed_sec, ed_pub = ed25519_keypair
+    s1 = sign_body(mldsa_keypair, {"x": 1, "sig": {}}, ed25519_secret=ed_sec, ed25519_public=ed_pub)
+    s2 = sign_body(mldsa_keypair, {"x": 1, "sig": {"garbage": "values"}}, ed25519_secret=ed_sec, ed25519_public=ed_pub)
+    s3 = sign_body(mldsa_keypair, {"x": 1}, ed25519_secret=ed_sec, ed25519_public=ed_pub)
+    assert verify_body(s1, base64.b64decode(s1["pq_signing_pub"])) is True
+    assert verify_body(s2, base64.b64decode(s2["pq_signing_pub"])) is True
+    assert verify_body(s3, base64.b64decode(s3["pq_signing_pub"])) is True
