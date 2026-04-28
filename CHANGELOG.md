@@ -1,3 +1,32 @@
+## [3.3.2] — 2026-04-28
+
+### Fixed
+
+- `rcan.encoding.canonical_json` now normalizes whole-number floats to integers
+  before serializing (e.g. `50.0` → `50`). Without this, a body containing a
+  whole-number float would sign as `{"x":50.0}` in Python but verify against
+  `{"x":50}` in rcan-ts (because JS's `JSON.parse` loses the int/float
+  distinction at parse time, so `50.0` always parses as `50`). The asymmetry
+  caused RRF-side verification of any artifact with whole-number floats to
+  fail with HTTP 401 — observed on `safety-benchmark` POST after the rcan-py
+  3.3.1 sign↔verify fix landed (RRF issue #71). FRIA / IFU / EU-register
+  bodies happened not to contain whole-number floats, so they verified fine.
+- New cross-language parity fixture cases in
+  `rcan-spec/fixtures/canonical-json-v1.json`: `whole_float_normalized_to_int`,
+  `whole_float_negative_and_zero`, `whole_float_large_within_safe_int`,
+  `mixed_whole_and_decimal_floats`, `whole_float_in_nested_array_of_dicts`,
+  `bool_not_coerced_to_int`. rcan-ts already passes these without code change
+  (JS's coercion gives this behavior for free).
+
+### Notes
+
+- Wire-format compatible with 3.3.1 only when the signed body contains no
+  whole-number floats. Existing 3.3.1-signed artifacts with whole-floats
+  (e.g. bob's pre-3.3.2 `safety-benchmark.json`) must be re-emitted with
+  3.3.2. Per memory's runtime-change protocol, RCAN-bearing robots must
+  re-emit + re-submit any whole-float-bearing artifact after this bump.
+- No SPEC_VERSION change. SDK_VERSION 3.3.1 → 3.3.2.
+
 ## [3.3.1] — 2026-04-27
 
 ### Fixed
