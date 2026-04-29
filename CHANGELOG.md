@@ -1,3 +1,25 @@
+## [3.3.3] — 2026-04-28
+
+### Added
+
+- `ManifestInfo.voice: dict[str, Any] | None` — parses the optional `voice:`
+  block from rcan-spec v3.3 §8.7. Block carries wake-word aliases beyond
+  `name`, BCP-47 spoken language, and an advisory Piper TTS voice id. Robots
+  that omit the block work unchanged. The block is held as a raw dict (not a
+  dataclass) since the schema is small and may evolve.
+- `_validate_voice_block(voice, robot_name)` — soft validation per spec.
+  Emits `UserWarning` (never raises) on shape errors, malformed BCP-47,
+  alias matching robot name, and aliases that NFKC-collapse to duplicates.
+- `_normalize_alias(s)` — wake-word matching pre-image (NFKC + casefold)
+  exposed for hosts that adopt the block.
+
+### Notes
+
+- No SPEC_VERSION change. SDK_VERSION 3.3.2 → 3.3.3.
+- Wire-format and signing pre-image are unchanged. The `voice:` block does
+  NOT participate in any RCAN canonical pre-image, RRN derivation, or
+  §22-26 compliance artifact (host-advisory only).
+
 ## [3.3.2] — 2026-04-28
 
 ### Fixed
