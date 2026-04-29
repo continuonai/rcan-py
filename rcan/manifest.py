@@ -24,6 +24,8 @@ an ImportError with a helpful message. Install with `pip install rcan[manifest]`
 
 from __future__ import annotations
 
+import re
+import unicodedata
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -120,6 +122,95 @@ def _validate_agent_runtimes(runtimes: list[dict[str, Any]]) -> list[str]:
     return errors
 
 
+# Lightweight BCP-47 sanity check — primary subtag (2-3 letters) plus optional
+# subtags. Not a full RFC 5646 validator; spec mandates soft validation.
+_BCP47_RE = re.compile(r"^[a-zA-Z]{2,3}(-[a-zA-Z0-9]+)*$")
+
+
+def _normalize_alias(s: str) -> str:
+    """Wake-word matching pre-image: NFKC + case-fold."""
+    return unicodedata.normalize("NFKC", s).casefold()
+
+
+def _validate_voice_block(voice: Any, robot_name: str | None) -> None:
+    """Soft-validate a `voice:` block per rcan-spec v3.3 §8.7.
+
+    Emits ``UserWarning`` for shape errors and the well-known soft-fail cases
+    (malformed BCP-47 language tag, alias matching robot name, NFKC-duplicate
+    aliases). Never raises — voice is fully optional and host-advisory.
+    """
+    if voice is None:
+        return
+    if not isinstance(voice, dict):
+        warnings.warn(
+            f"voice block is not a mapping (got {type(voice).__name__}); ignored",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
+
+    aliases = voice.get("aliases")
+    if aliases is not None:
+        if not isinstance(aliases, list):
+            warnings.warn(
+                f"voice.aliases must be a list (got {type(aliases).__name__})",
+                UserWarning,
+                stacklevel=3,
+            )
+        else:
+            seen: dict[str, int] = {}
+            normalized_name = _normalize_alias(robot_name) if robot_name else None
+            for i, alias in enumerate(aliases):
+                if not isinstance(alias, str):
+                    warnings.warn(
+                        f"voice.aliases[{i}] is not a string (got {type(alias).__name__})",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+                    continue
+                norm = _normalize_alias(alias)
+                if normalized_name and norm == normalized_name:
+                    warnings.warn(
+                        f"voice.aliases[{i}]={alias!r} duplicates robot name "
+                        f"(already a wake word); consider removing",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+                if norm in seen:
+                    warnings.warn(
+                        f"voice.aliases[{i}]={alias!r} NFKC-collapses to "
+                        f"voice.aliases[{seen[norm]}] — duplicate after normalization",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+                else:
+                    seen[norm] = i
+
+    lang = voice.get("language")
+    if lang is not None:
+        if not isinstance(lang, str):
+            warnings.warn(
+                f"voice.language must be a string (got {type(lang).__name__})",
+                UserWarning,
+                stacklevel=3,
+            )
+        elif not _BCP47_RE.match(lang):
+            warnings.warn(
+                f"voice.language={lang!r} does not match BCP-47 shape "
+                f"(expected e.g. 'en-US', 'pt-BR'); using as-is",
+                UserWarning,
+                stacklevel=3,
+            )
+
+    tts_voice = voice.get("tts_voice")
+    if tts_voice is not None and not isinstance(tts_voice, str):
+        warnings.warn(
+            f"voice.tts_voice must be a string (got {type(tts_voice).__name__})",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 @dataclass(frozen=True)
 class ManifestInfo:
     """Extracted identity + network fields from a ROBOT.md manifest.
@@ -132,6 +223,11 @@ class ManifestInfo:
     from the ``agent:`` block. ``None`` if the manifest has no agent block.
     Flat form is auto-normalized to a single entry (with ``DeprecationWarning``
     emitted at parse time).
+
+    ``voice`` is the optional per-rcan-spec-v3.3-§8.7 voice block as a dict:
+    ``{"aliases": [...], "language": "en-US", "tts_voice": "..."}``. ``None``
+    if the manifest has no voice block. Soft-validated at parse time —
+    obvious shape errors emit warnings but never raise.
     """
 
     rrn: str | None
@@ -142,6 +238,7 @@ class ManifestInfo:
     robot_name: str | None
     rcan_version: str | None
     agent_runtimes: list[dict[str, Any]] | None
+    voice: dict[str, Any] | None
     frontmatter: dict[str, Any]
 
 
@@ -191,16 +288,20 @@ def from_manifest(path: str | Path) -> ManifestInfo:
     if agent_runtimes is not None:
         errors = _validate_agent_runtimes(agent_runtimes)
         if errors:
-            raise ValueError(
-                "agent.runtimes[] validation failed: " + "; ".join(errors)
-            )
+            raise ValueError("agent.runtimes[] validation failed: " + "; ".join(errors))
 
     rrn = metadata.get("rrn") or None
     rcan_uri = metadata.get("rcan_uri") or None
     endpoint = network.get("rrf_endpoint") or None
     signing_alg = network.get("signing_alg") or None
     robot_name = metadata.get("robot_name") or None
-    rcan_version = str(fm["rcan_version"]) if fm.get("rcan_version") is not None else None
+    rcan_version = (
+        str(fm["rcan_version"]) if fm.get("rcan_version") is not None else None
+    )
+
+    voice_block = fm.get("voice")
+    _validate_voice_block(voice_block, robot_name)
+    voice = voice_block if isinstance(voice_block, dict) else None
 
     public_resolver = f"https://rcan.dev/r/{rrn}" if rrn else None
 
@@ -213,5 +314,6 @@ def from_manifest(path: str | Path) -> ManifestInfo:
         robot_name=robot_name,
         rcan_version=rcan_version,
         agent_runtimes=agent_runtimes,
+        voice=voice,
         frontmatter=fm,
     )
