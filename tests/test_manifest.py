@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pytest
@@ -125,8 +126,6 @@ def test_from_manifest_scalar_frontmatter_raises(tmp_path):
 
 # --- v3.2: agent.runtimes[] normalization + validation ---
 
-import warnings
-
 
 def test_normalize_agent_flat_form_emits_deprecation_warning():
     """Flat agent.provider/model form should emit DeprecationWarning and normalize
@@ -164,12 +163,24 @@ def test_normalize_agent_runtimes_form_no_warning():
                 "id": "robot-md",
                 "harness": "claude-code",
                 "default": True,
-                "models": [{"provider": "anthropic", "model": "claude-sonnet-4-6", "role": "primary"}],
+                "models": [
+                    {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4-6",
+                        "role": "primary",
+                    }
+                ],
             },
             {
                 "id": "opencastor",
                 "harness": "castor-default",
-                "models": [{"provider": "anthropic", "model": "claude-sonnet-4-6", "role": "primary"}],
+                "models": [
+                    {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4-6",
+                        "role": "primary",
+                    }
+                ],
             },
         ],
     }
@@ -205,9 +216,7 @@ def test_validate_agent_runtimes_single_entry_default_optional():
     """When runtimes[] has exactly one entry, default is optional."""
     from rcan.manifest import _validate_agent_runtimes
 
-    errors = _validate_agent_runtimes(
-        [{"id": "robot-md", "harness": "claude-code"}]
-    )
+    errors = _validate_agent_runtimes([{"id": "robot-md", "harness": "claude-code"}])
     assert errors == []
 
 
@@ -317,3 +326,102 @@ def test_from_manifest_populates_agent_runtimes(tmp_path: Path):
     assert info.agent_runtimes[0]["id"] == "robot-md"
     assert info.agent_runtimes[0]["default"] is True
     assert info.agent_runtimes[1]["id"] == "opencastor"
+
+
+# ----- v3.3 §8.7 voice block --------------------------------------------------
+
+
+VOICE_MANIFEST = """\
+---
+rcan_version: '3.3'
+metadata:
+  robot_name: bob
+  rrn: RRN-000000000003
+voice:
+  aliases: [bobby, hey-bob]
+  language: en-US
+  tts_voice: en_US-amy-low
+physics:
+  type: arm
+  dof: 6
+drivers:
+  - id: arm
+    protocol: feetech
+    port: /dev/ttyACM0
+safety:
+  estop:
+    software: true
+    response_ms: 100
+network:
+  rrf_endpoint: https://rcan.dev
+---
+
+# Bob
+"""
+
+
+def test_from_manifest_populates_voice_block(tmp_path: Path):
+    """voice block parses cleanly and lands on ManifestInfo.voice."""
+    f = tmp_path / "ROBOT.md"
+    f.write_text(VOICE_MANIFEST)
+    info = from_manifest(f)
+    assert info.voice is not None
+    assert info.voice["aliases"] == ["bobby", "hey-bob"]
+    assert info.voice["language"] == "en-US"
+    assert info.voice["tts_voice"] == "en_US-amy-low"
+
+
+def test_from_manifest_no_voice_block_yields_none(tmp_path: Path):
+    """Missing voice: block → ManifestInfo.voice is None (no warnings)."""
+    f = tmp_path / "ROBOT.md"
+    f.write_text(RUNTIMES_MANIFEST)  # has no voice block
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning → test fails
+        info = from_manifest(f)
+    assert info.voice is None
+
+
+def test_voice_alias_duplicating_robot_name_warns(tmp_path: Path):
+    """Per §8.7 validation: alias matching robot name (after NFKC) warns, not rejects."""
+    bad = VOICE_MANIFEST.replace("aliases: [bobby, hey-bob]", "aliases: [BOB, bobby]")
+    f = tmp_path / "ROBOT.md"
+    f.write_text(bad)
+    with pytest.warns(UserWarning, match="duplicates robot name"):
+        info = from_manifest(f)
+    # Voice block still lands — validation is soft.
+    assert info.voice is not None
+    assert info.voice["aliases"] == ["BOB", "bobby"]
+
+
+def test_voice_nfkc_duplicate_aliases_warn(tmp_path: Path):
+    """Two aliases that NFKC-collapse to the same string warn (host wake-match dedup)."""
+    bad = VOICE_MANIFEST.replace("aliases: [bobby, hey-bob]", "aliases: [bobby, BOBBY]")
+    f = tmp_path / "ROBOT.md"
+    f.write_text(bad)
+    with pytest.warns(UserWarning, match="NFKC-collapses"):
+        from_manifest(f)
+
+
+def test_voice_malformed_bcp47_warns_not_rejects(tmp_path: Path):
+    """voice.language not BCP-47 shape → warning, never raise."""
+    bad = VOICE_MANIFEST.replace("language: en-US", "language: '123_not_a_lang!'")
+    f = tmp_path / "ROBOT.md"
+    f.write_text(bad)
+    with pytest.warns(UserWarning, match="BCP-47"):
+        info = from_manifest(f)
+    # Block still lands; validators consume what's there.
+    assert info.voice is not None
+    assert info.voice["language"] == "123_not_a_lang!"
+
+
+def test_voice_block_not_a_dict_is_ignored(tmp_path: Path):
+    """voice: scalar (e.g. a string) → warning + voice=None on ManifestInfo."""
+    bad = VOICE_MANIFEST.replace(
+        "voice:\n  aliases: [bobby, hey-bob]\n  language: en-US\n  tts_voice: en_US-amy-low",
+        "voice: just a string",
+    )
+    f = tmp_path / "ROBOT.md"
+    f.write_text(bad)
+    with pytest.warns(UserWarning, match="not a mapping"):
+        info = from_manifest(f)
+    assert info.voice is None
