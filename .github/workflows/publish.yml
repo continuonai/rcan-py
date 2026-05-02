@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -39,3 +39,34 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Ensure GitHub release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "${{ steps.tag.outputs.tag }}" --repo continuonai/rcan-py >/dev/null 2>&1; then
+            gh release create "${{ steps.tag.outputs.tag }}" \
+              --repo continuonai/rcan-py \
+              --title "rcan-py ${{ steps.tag.outputs.tag }}" \
+              --generate-notes
+          fi
+
+      - uses: continuonai/rcan-spec/.github/actions/emit-version-tuple@v3.2.0
+        with:
+          project: rcan-py
+          ran: ${{ secrets.RCAN_PY_RELEASE_RAN }}
+          field: sdk_version_py
+          value: ${{ steps.tag.outputs.version }}
+          depends_on: '{"protocol_version":">=3.2.0"}'
+          pq_signing_key: ${{ secrets.RCAN_PY_RELEASE_PQ_PRIV }}
+          pq_kid: ${{ secrets.RCAN_PY_RELEASE_KID }}
+          ed25519_signing_key: ${{ secrets.RCAN_PY_RELEASE_PRIV }}
+          ed25519_kid: ${{ secrets.RCAN_PY_RELEASE_KID }}
+          release_tag: ${{ steps.tag.outputs.tag }}
