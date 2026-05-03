@@ -41,7 +41,7 @@ def _normalize_for_canonical(v: Any) -> Any:
     return v
 
 
-def canonical_json(body: dict[str, Any]) -> bytes:
+def canonical_json(body: dict[str, Any], *, exclude: str | None = None) -> bytes:
     """Return the canonical UTF-8 bytes of ``body``.
 
     Deterministic: calling this twice on equivalent inputs yields identical
@@ -55,6 +55,10 @@ def canonical_json(body: dict[str, Any]) -> bytes:
 
     Args:
         body: A dict serializable by :func:`json.dumps`. Keys MUST be strings.
+        exclude: If set, a top-level key to drop from ``body`` before
+            serializing. Used by audit-bundle / nested-envelope signing where
+            the signature field must not cover itself. Only affects top-level
+            keys; nested occurrences are preserved.
 
     Returns:
         Bytes (UTF-8 encoded).
@@ -64,7 +68,11 @@ def canonical_json(body: dict[str, Any]) -> bytes:
         b'{"a":2,"b":1}'
         >>> canonical_json({"x": 50.0})
         b'{"x":50}'
+        >>> canonical_json({"a": 1, "sig": "..."}, exclude="sig")
+        b'{"a":1}'
     """
+    if exclude is not None and isinstance(body, dict):
+        body = {k: v for k, v in body.items() if k != exclude}
     return json.dumps(
         _normalize_for_canonical(body),
         sort_keys=True,

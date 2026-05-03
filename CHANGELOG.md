@@ -1,3 +1,37 @@
+## [3.4.0] — 2026-05-03
+
+### Added
+
+- `rcan.audit_bundle` — typed Python helpers for the audit-bundle v1.0 envelope
+  (locked in rcan-spec `schemas/audit-bundle-v1.json`, Plan 4 Task 1):
+  - `AuditBundle.new(rrn=, robot_md_sha256=, artifacts=, ...)` constructs a
+    fresh unsigned bundle with a UUID-derived `bundle_id` and ISO-8601
+    `signed_at` stamp.
+  - `Artifact` + `Signature` dataclasses for the inner nested-signature shape.
+  - `verify_bundle(bundle_json, mode=, kid_to_pem=)` returns a typed
+    `BundleVerificationResult` with per-artifact + outer-signature verdicts.
+    `mode=VerifyMode.STRICT` walks every inner artifact against its registered
+    kid; `mode=VerifyMode.AGGREGATOR_TRUST` checks only the outer signature.
+  - `kid_to_pem` accepts either a `dict[str, bytes]` or a callable
+    `(kid) -> bytes | None` so callers can plug their own resolver (RRF
+    lookup, local cache, etc).
+  - `hash_robot_md(content)` computes the canonical
+    `robot_md_sha256` field used in the bundle header.
+- `rcan.encoding.canonical_json(body, *, exclude=None)` — additive `exclude`
+  kwarg drops a top-level field before serializing. Used by audit-bundle and
+  any nested-signature scheme where the signature must not cover itself. All
+  existing callers continue to work unchanged (default `exclude=None`).
+  `rcan.audit_bundle.canonical_json` re-exports this — single source of truth
+  for cross-language byte parity (the rcan-ts whole-number-float
+  normalization landed in 3.3.2 carries through).
+
+### Notes
+
+- No SPEC_VERSION change. SDK_VERSION 3.3.3 → 3.4.0 (minor — new public API).
+- `verify_bundle` requires the `[crypto]` extra (`pip install rcan[crypto]`);
+  imports are deferred so construction-only callers do not need
+  `cryptography`.
+
 ## [3.3.3] — 2026-04-28
 
 ### Added
