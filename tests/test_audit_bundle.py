@@ -108,6 +108,35 @@ def test_verify_bundle_strict_mode_checks_inner_artifacts():
     assert result.all_ok is True
 
 
+def test_verify_bundle_strict_rejects_tampered_artifact():
+    """STRICT must catch a tampered inner artifact even when the outer
+    bundle signature is still valid."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    bundle_priv = Ed25519PrivateKey.generate()
+    artifact_priv = Ed25519PrivateKey.generate()
+
+    artifact = _build_signed_artifact(artifact_priv, kid="art-kid")
+    bundle_json_str = _build_signed_bundle(
+        bundle_priv, kid="bundle-kid", artifacts=[artifact]
+    )
+
+    bundle_dict = json.loads(bundle_json_str)
+    bundle_dict["artifacts"][0]["payload"]["pass"] = 999
+    tampered_json = json.dumps(bundle_dict)
+
+    kid_to_pem = {
+        "bundle-kid": _pubkey_pem(bundle_priv),
+        "art-kid": _pubkey_pem(artifact_priv),
+    }
+    result = verify_bundle(tampered_json, mode=VerifyMode.STRICT, kid_to_pem=kid_to_pem)
+
+    assert result.all_ok is False
+    assert len(result.artifact_results) == 1
+    assert result.artifact_results[0].ok is False
+    assert "did not verify" in result.artifact_results[0].reason
+
+
 def test_verify_bundle_kid_resolver_callable():
     """kid_to_pem may be a callable, not just a dict."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
