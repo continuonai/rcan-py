@@ -1,9 +1,9 @@
 # rcan-py
 
-**Python SDK for the [RCAN protocol](https://rcan.dev/spec/) v3.0.** Build robots that communicate securely, audit every action, enforce safety gates locally, and register with the Robot Registry Foundation.
+**Python SDK for the [RCAN protocol](https://rcan.dev/spec/).** Build robots that communicate securely, audit every action, enforce safety gates locally, and register with the Robot Registry Foundation. Pinned protocol version: see the [live compatibility matrix](https://rcan.dev/compatibility).
 
 [![PyPI version](https://img.shields.io/pypi/v/rcan.svg)](https://pypi.org/project/rcan/)
-[![RCAN Spec](https://img.shields.io/badge/RCAN-v3.0-blue)](https://rcan.dev/spec/)
+[![RCAN Spec](https://img.shields.io/badge/RCAN-live%20matrix-blue)](https://rcan.dev/compatibility)
 [![Tests](https://github.com/continuonai/rcan-py/actions/workflows/ci.yml/badge.svg)](https://github.com/continuonai/rcan-py/actions)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/rcan/)
@@ -153,7 +153,7 @@ rcan-validate all myrobot.rcan.yaml
 
 ## Spec Compliance
 
-Implements [RCAN v1.6](https://rcan.dev/spec/) — 587 tests, 0 skipped.
+Implements [the RCAN protocol](https://rcan.dev/compatibility) — 587 tests, 0 skipped. See the [live compatibility matrix](https://rcan.dev/compatibility) for the pinned version this SDK targets.
 
 Covered sections: §1 Robot URI · §2 RBAC · §3 Message Format · §5 Authentication · §5.3 QoS · §6 Safety Invariants · §8.3 Replay Prevention · §8.4 Clock Sync · §8.5 Sender Type · §8.6 Key Lifecycle · §8.7 Level of Assurance · §9 Capabilities · §11 Behavior Scripts · §12 Command Delegation · §13 Revocation · §14 Offline Mode · §16 AI Accountability · §17 Distributed Registry · §18 Federation · §19 Constrained Transport · §21 Registry Integration
 
