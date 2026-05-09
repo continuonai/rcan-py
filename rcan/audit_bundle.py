@@ -47,8 +47,12 @@ KidResolver = Union[dict[str, bytes], Callable[[str], bytes | None]]
 @dataclass
 class Signature:
     kid: str
-    alg: str  # always "Ed25519" in v1.0
-    sig: str  # base64
+    # "Ed25519" for the flat/v1.0 shape, or ["Ed25519", "ML-DSA-65"] for the
+    # hybrid shape emitted by the opencastor-ops aggregator.
+    alg: str | list[str]
+    # Base64 string for the flat shape, or a nested dict for hybrid:
+    # {"ed25519": b64, "ml_dsa": b64, "ed25519_pub": b64}.
+    sig: str | dict[str, str]
 
     def to_dict(self) -> dict:
         return {"kid": self.kid, "alg": self.alg, "sig": self.sig}
@@ -228,8 +232,18 @@ def _verify_signature(
     if not isinstance(pub, Ed25519PublicKey):
         return False
     try:
-        pub.verify(base64.b64decode(sig_obj["sig"]), message)
-    except (InvalidSignature, KeyError, ValueError):
+        sig_value = sig_obj["sig"]
+        if isinstance(sig_value, dict):
+            # Hybrid signature shape (Ed25519 + ML-DSA-65) emitted by the
+            # opencastor-ops aggregator: {"ed25519": b64, "ml_dsa": b64,
+            # "ed25519_pub": b64}. Verify the Ed25519 portion here; full
+            # post-quantum verification of the ml_dsa half is the job of
+            # rcan.hybrid.verify_body when the caller wants both layers.
+            sig_value = sig_value.get("ed25519")
+            if not sig_value:
+                return False
+        pub.verify(base64.b64decode(sig_value), message)
+    except (InvalidSignature, KeyError, ValueError, TypeError):
         return False
     return True
 
