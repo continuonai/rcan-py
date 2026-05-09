@@ -154,6 +154,68 @@ def test_verify_bundle_kid_resolver_callable():
     assert result.bundle_signature_ok is True
 
 
+def test_verify_bundle_handles_hybrid_bundle_signature():
+    """Aggregator-emitted bundles use a nested sig dict (Ed25519 + ML-DSA-65)."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    priv = Ed25519PrivateKey.generate()
+    bundle_json = _build_signed_bundle_hybrid(priv, kid="hybrid-bundle-kid")
+    pubkey_pem = _pubkey_pem(priv)
+
+    result = verify_bundle(
+        bundle_json,
+        mode=VerifyMode.AGGREGATOR_TRUST,
+        kid_to_pem={"hybrid-bundle-kid": pubkey_pem},
+    )
+    assert result.bundle_signature_ok is True
+    assert result.all_ok is True
+
+
+def test_verify_bundle_handles_hybrid_artifact_signature_strict():
+    """STRICT mode also handles inner artifacts whose sig is the hybrid shape."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    bundle_priv = Ed25519PrivateKey.generate()
+    artifact_priv = Ed25519PrivateKey.generate()
+
+    artifact = _build_signed_artifact_hybrid(artifact_priv, kid="hybrid-art-kid")
+    bundle_json = _build_signed_bundle_hybrid(
+        bundle_priv, kid="hybrid-bundle-kid", artifacts=[artifact]
+    )
+
+    kid_to_pem = {
+        "hybrid-bundle-kid": _pubkey_pem(bundle_priv),
+        "hybrid-art-kid": _pubkey_pem(artifact_priv),
+    }
+    result = verify_bundle(bundle_json, mode=VerifyMode.STRICT, kid_to_pem=kid_to_pem)
+    assert result.bundle_signature_ok is True
+    assert len(result.artifact_results) == 1
+    assert result.artifact_results[0].ok is True
+    assert result.all_ok is True
+
+
+def test_verify_bundle_rejects_hybrid_sig_missing_ed25519():
+    """A hybrid sig dict that omits the ed25519 key cannot be verified."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    priv = Ed25519PrivateKey.generate()
+    bundle = AuditBundle.new(
+        rrn="RRN-000000000002", robot_md_sha256="a" * 64, artifacts=[]
+    )
+    payload = bundle.to_dict()
+    payload["bundle_signature"] = {
+        "kid": "hybrid-broken",
+        "alg": ["Ed25519", "ML-DSA-65"],
+        "sig": {"ml_dsa": "AAAA", "ed25519_pub": "BBBB"},  # missing ed25519
+    }
+    result = verify_bundle(
+        json.dumps(payload),
+        mode=VerifyMode.AGGREGATOR_TRUST,
+        kid_to_pem={"hybrid-broken": _pubkey_pem(priv)},
+    )
+    assert result.bundle_signature_ok is False
+
+
 def test_verify_bundle_missing_signature_returns_false():
     bundle = AuditBundle.new(
         rrn="RRN-000000000002",
@@ -206,6 +268,59 @@ def _build_signed_artifact(priv, *, kid: str) -> Artifact:
             kid=kid,
             alg="Ed25519",
             sig=base64.b64encode(sig).decode("ascii"),
+        ),
+    )
+
+
+def _build_signed_bundle_hybrid(priv, *, kid: str, artifacts=None) -> str:
+    """Build a bundle whose bundle_signature.sig is the nested hybrid shape."""
+    from cryptography.hazmat.primitives import serialization
+
+    bundle = AuditBundle.new(
+        rrn="RRN-000000000002",
+        robot_md_sha256="a" * 64,
+        artifacts=artifacts or [],
+    )
+    payload = bundle.to_dict()
+    canon = canonical_json(payload, exclude="bundle_signature")
+    sig = priv.sign(canon)
+    pub_raw = priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    payload["bundle_signature"] = {
+        "kid": kid,
+        "alg": ["Ed25519", "ML-DSA-65"],
+        "sig": {
+            "ed25519": base64.b64encode(sig).decode("ascii"),
+            "ml_dsa": "ZmFrZS1tbC1kc2Etc2lnbmF0dXJlLXBsYWNlaG9sZGVy",
+            "ed25519_pub": base64.b64encode(pub_raw).decode("ascii"),
+        },
+    }
+    return json.dumps(payload)
+
+
+def _build_signed_artifact_hybrid(priv, *, kid: str) -> Artifact:
+    body = {
+        "artifact_type": "cert-gateway-authority",
+        "schema_version": "1.0",
+        "produced_at": "2026-05-09T12:00:00+00:00",
+        "payload": {"pass": 4, "fail": 0},
+    }
+    canon = canonical_json(body, exclude="artifact_signature")
+    sig = priv.sign(canon)
+    return Artifact(
+        artifact_type=body["artifact_type"],
+        schema_version=body["schema_version"],
+        produced_at=body["produced_at"],
+        payload=body["payload"],
+        artifact_signature=Signature(
+            kid=kid,
+            alg=["Ed25519", "ML-DSA-65"],
+            sig={
+                "ed25519": base64.b64encode(sig).decode("ascii"),
+                "ml_dsa": "ZmFrZS1tbC1kc2Etc2lnbmF0dXJlLXBsYWNlaG9sZGVy",
+            },
         ),
     )
 

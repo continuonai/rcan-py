@@ -1,3 +1,20 @@
+## [3.4.1] — 2026-05-09
+
+### Fixed
+
+- `rcan.audit_bundle.verify_bundle` now accepts the hybrid (Ed25519 + ML-DSA-65)
+  signature shape emitted by the opencastor-ops compliance-bundle aggregator —
+  `sig: {"ed25519": b64, "ml_dsa": b64, "ed25519_pub": b64}`. The Ed25519 portion
+  is verified inline; full PQC verification of the ml_dsa half remains the job
+  of `rcan.hybrid.verify_body` for callers who want both layers. Previously the
+  function raised `TypeError: argument should be a bytes-like object or ASCII
+  string, not 'dict'` against any real Plan 4/Plan 6 aggregator bundle.
+
+### Changed
+
+- `Signature.alg` is now `str | list[str]` and `Signature.sig` is now
+  `str | dict[str, str]`, matching what hybrid bundles already produce.
+
 ## [3.4.0] — 2026-05-03
 
 ### Added
